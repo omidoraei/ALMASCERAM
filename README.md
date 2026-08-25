@@ -1,81 +1,73 @@
-# پلتفرم نمایش محصولات کاشی و سرامیک
+# React + TypeScript + Vite
 
-کاتالوگ هوشمند B2B/B2C برای نمایش دقیق فنی محصولات کاشی و سرامیک همراه با
-سیستم استعلام قیمت (بدون قیمت‌گذاری عمومی، بدون سبد خرید/پرداخت).
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Tech Stack
-Next.js 15 (App Router) · React 18 · TypeScript Strict · Tailwind CSS v4 ·
-shadcn/ui + Radix UI · Phosphor Icons · Supabase (PostgreSQL + Auth) · Zod ·
-Zustand · React Hook Form
+Currently, two official plugins are available:
 
-## راه‌اندازی محلی
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-```bash
-npm install
-cp .env.local.example .env.local   # سپس مقادیر واقعی Supabase را وارد کنید
-npm run dev
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
 
-### اتصال به Supabase واقعی
-1. یک پروژه جدید در [supabase.com](https://supabase.com) بسازید.
-2. تمام فایل‌های `supabase/migrations/*.sql` را به ترتیب timestamp با
-   `supabase db push` یا از طریق SQL Editor اجرا کنید.
-3. مقادیر `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY` را در `.env.local` قرار دهید.
-4. `npm run health-check` را اجرا کنید تا از وجود تمام جداول مطمئن شوید.
-5. `npm run seed` را برای وارد کردن داده نمونه اجرا کنید.
-6. یک کاربر ادمین در Supabase Auth بسازید و ردیف متناظر را در جدول
-   `admin_profiles` (با `role = 'super_admin'`) ثبت کنید.
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-> **توجه:** تا زمانی که Supabase پیکربندی نشده باشد، سایت به‌صورت خودکار از
-> داده‌های نمایشی (`src/lib/data/mock-catalog.ts`) استفاده می‌کند تا امکان
-> پیش‌نمایش کامل رابط کاربری بدون بک‌اند واقعی وجود داشته باشد.
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-## ساختار پوشه‌ها
-
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
 ```
-src/
-  app/
-    (public)/       صفحات عمومی: خانه، کالکشن‌ها، محصولات، جستجو، استعلام، حساب کاربری
-    (admin)/admin/  پنل مدیریت (ورود + Guard کامل — UI کامل در مرحله بعد)
-  components/
-    ui/             کامپوننت‌های پایه (shadcn-style)
-    layout/         Header, Footer
-    public/         کارت‌ها، سبد استعلام، انتخاب‌گر سایز
-    admin/          فرم ورود ادمین
-  lib/
-    supabase/       کلاینت‌های server/client/admin + پیکربندی
-    actions/        Server Actions (CRUD کامل + Inquiry/Auth)
-    services/       Service Layer با Fallback به داده نمایشی
-    validations/    اسکیمای Zod
-    utils/          توابع کمکی (فرمت اعداد فارسی، اسلاگ و ...)
-    data/           داده نمایشی برای دمو بدون بک‌اند
-  store/            Zustand (فقط سبد استعلام)
-supabase/migrations/  تمام Migrationهای SQL (Single Source of Truth دیتابیس)
-scripts/              seed.ts و health-check.ts
-docs/architecture/    مستندسازی معماری ۱۲ لایه، ERD، RLS، HARNESS/FINN-Loop
-```
-
-## مستندات معماری
-پیش از هرگونه تغییر، فایل‌های داخل `docs/architecture/` را مطالعه کنید:
-- `00-overview.md` — چشم‌انداز و اصول حاکم
-- `01-layers.md` — وضعیت هر یک از ۱۲ لایه معماری
-- `02-database-erd.md` — نقشه دیتابیس و روابط
-- `03-rls-policies.md` — جدول کامل سیاست‌های RLS
-- `04-harness-finn-loop.md` — متدولوژی توسعه
-- `05-roadmap.md` — نقشه راه مراحل بعدی
-
-## اسکریپت‌ها
-
-| دستور | توضیح |
-|---|---|
-| `npm run dev` | اجرای سرور توسعه |
-| `npm run build` | ساخت نسخه تولید |
-| `npm run typecheck` | بررسی TypeScript بدون emit |
-| `npm run seed` | وارد کردن داده نمونه به Supabase |
-| `npm run health-check` | بررسی سلامت اتصال و وجود تمام جداول |
-
-## وضعیت فعلی توسعه
-مراحل صفر تا ۲ (زیرساخت، دیتابیس، Server Actions) تکمیل شده است. طبق
-دستور کارفرما، پیاده‌سازی کامل رابط کاربری پنل مدیریت (لایه ۹) در انتظار
-تأیید نهایی است.

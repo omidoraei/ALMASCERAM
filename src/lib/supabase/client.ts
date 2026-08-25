@@ -1,15 +1,12 @@
-// =============================================================================
-// Supabase Browser Client — برای استفاده در Client Components
-// لایه: 7 (زیرساخت) — فقط کلید anon (با RLS محدود) افشا می‌شود.
-// =============================================================================
-'use client';
+import { createClient } from '@supabase/supabase-js'
 
-import { createBrowserClient } from '@supabase/ssr';
-import type { Database } from '@/lib/types/database.types';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
-export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-  );
-}
+export const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    })
+  : null
+
+export const isSupabaseConfigured = supabase !== null
