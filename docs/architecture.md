@@ -3,7 +3,7 @@
 ## Architecture Decision Record
 
 **وضعیت:** Accepted — 2025-02  
-**هدف:** کاتالوگ B2B/B2C بدون قیمت عمومی و پرداخت، با تبدیل کاربر به لید از طریق استعلام چندمحصولی و Email OTP.
+**هدف:** کاتالوگ B2B/B2C بدون قیمت عمومی و پرداخت، با تبدیل کاربر به لید از طریق استعلام چندمحصولی و Email Magic Link.
 
 ## لایه‌بندی ۱۲ لایه‌ای
 
@@ -14,7 +14,7 @@
 5. **Client State:** فقط وضعیت گذرا و سبد استعلام در Zustand؛ داده اصلی از سرور.
 6. **Validation & Forms:** قرارداد واحد Zod در مرز ورودی؛ React Hook Form برای فرم‌ها.
 7. **Backend Infrastructure:** Supabase Auth/PostgreSQL/Storage/RPC با RLS پیش‌فرض؛ بدون Edge Function در مسیر استعلام MVP.
-8. **Application Use Cases:** Query catalog، CRUD ادمین، Email OTP مستقیم و یک RPC اتمیک برای submit inquiry.
+8. **Application Use Cases:** Query catalog، CRUD ادمین، Email Magic Link مستقیم و یک RPC اتمیک برای submit inquiry.
 9. **Administration:** در فاز بعد؛ نقش‌محور و فاقد دسترسی مستقیم service-role در مرورگر.
 10. **Data & Search:** PostgreSQL، نام‌گذاری snake_case، FTS فارسی با trigger و index.
 11. **Security & Observability:** least privilege، audit log append-only، redaction و correlation id.
@@ -24,7 +24,7 @@
 
 - **H — Hard boundaries:** مرز public/admin و server/client غیرقابل عبور است.
 - **A — Architecture records:** تصمیم‌های امنیتی و داده‌ای پیش از کد ثبت می‌شوند.
-- **R — Requirements & risks:** نبود قیمت عمومی، OTP و مالکیت inquiry معیار پذیرش هستند.
+- **R — Requirements & risks:** نبود قیمت عمومی، Magic Link و مالکیت inquiry معیار پذیرش هستند.
 - **N — Non-functional gates:** RTL، SEO، strict TS، performance و accessibility gate دارند.
 - **E — Evidence:** build، migration، RLS و health-check شواهد تحویل‌اند.
 - **S — Security:** deny-by-default، validation دوباره در سرور و service-role فقط server-side.
@@ -41,19 +41,19 @@
 
 - کلاینت عمومی فقط anon key دارد؛ service-role هرگز با prefix عمومی تعریف نمی‌شود.
 - داده‌های catalog منتشرشده برای anonymous خواندنی است. تمام mutationها نیازمند admin profile فعال‌اند.
-- سبد مهمان تا قبل از OTP فقط در `localStorage` نگهداری می‌شود و هیچ داده مهمانی به دیتابیس ارسال نمی‌شود.
+- سبد مهمان تا قبل از بازگشت موفق Magic Link فقط در `localStorage` نگهداری می‌شود و هیچ داده مهمانی به دیتابیس ارسال نمی‌شود.
 - `pending_inquiries` در MVP استفاده نمی‌شود، هیچ policy برای هیچ command ندارد و privilege آن از `anon` و `authenticated` سلب شده است.
-- پس از Email OTP، کل سبد با یک فراخوانی مستقیم `create_inquiry_from_basket(items, note)` به PostgreSQL منتقل می‌شود؛ Edge Function و serverless hop وجود ندارد.
+- پس از Email Magic Link، کل سبد با یک فراخوانی مستقیم `create_inquiry_from_basket(items, note)` به PostgreSQL منتقل می‌شود؛ Edge Function و serverless hop وجود ندارد.
 - RPC از نوع `SECURITY INVOKER` است، `auth.uid()` و `customer_profiles` را بررسی می‌کند، RLS را حفظ می‌کند و درج inquiry/items را در یک تراکنش انجام می‌دهد.
 - inquiry ثبت‌شده فقط توسط مالک متناظر در `customer_profiles` یا admin دیده می‌شود؛ audit log برای کاربر عمومی بسته است.
-- OTP باید rate limit، expiry، single-use token و پاسخ‌های غیرقابل تشخیص برای جلوگیری از account enumeration داشته باشد.
+- Magic Link باید rate limit، expiry، single-use PKCE code و پاسخ‌های غیرقابل تشخیص برای جلوگیری از account enumeration داشته باشد.
 - رسانه‌های MVP در سه Bucket عمومی تفکیک‌شده نگهداری می‌شوند؛ نمایش از CDN بدون Signed URL انجام می‌شود و write فقط با Storage RLS و `is_admin()` مجاز است.
 
 ## ADR-002 — Guest Basket to Authenticated Inquiry
 
 1. کاربر مهمان محصولات و سایزها را در Store پایدار مرورگر جمع می‌کند.
-2. فرم با Zod اعتبارسنجی و OTP مستقیماً از Supabase Auth درخواست می‌شود.
-3. پس از `verifyOtp`، session احرازشده در Supabase Client فعال است.
+2. فرم با Zod اعتبارسنجی و Magic Link مستقیماً از Supabase Auth درخواست می‌شود.
+3. callback کد PKCE را با session احرازشده مبادله می‌کند.
 4. Action فقط یک بار RPC را با آرایه حداکثر ۵۰ قلم فراخوانی می‌کند.
 5. PostgreSQL هویت، مالکیت profile، UUID سایزها، انتشار محصول، quantity، متراژ، تکراری‌نبودن و طول note را دوباره بررسی می‌کند.
 6. هر خطا کل statement را Rollback می‌کند. Store مرورگر فقط بعد از دریافت UUID استعلام پاک می‌شود.

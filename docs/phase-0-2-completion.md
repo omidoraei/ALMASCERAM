@@ -13,7 +13,7 @@
 - تمام ۲۱ جدول دامنه دارای RLS هستند.
 - `pending_inquiries` در MVP بدون Policy و بدون privilege برای anon/authenticated است.
 - سه Bucket عمومی با public-read و admin-only write فعال‌اند.
-- سبد مهمان تا قبل از OTP فقط در localStorage است؛ پس از OTP با یک RPC اتمیک منتقل می‌شود.
+- سبد مهمان تا قبل از callback موفق Magic Link فقط در localStorage است؛ سپس با یک RPC اتمیک منتقل می‌شود.
 - Server/browser/admin Supabase clients مرزهای جدا دارند و service-role وارد bundle مرورگر نمی‌شود.
 - Seed و Health Check مستقل و بدون ORM هستند.
 

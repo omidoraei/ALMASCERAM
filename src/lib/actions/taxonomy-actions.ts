@@ -1,6 +1,7 @@
 import { supabase } from '../supabase/client'
 import { catalogIdSchema } from '../validation/catalog'
 import { pageQuerySchema, taxonomyInputSchema, taxonomyKindSchema, taxonomyUpdateSchema, type TaxonomyInput, type TaxonomyKind } from '../validation/admin-entities'
+import { requireAdminClient } from '../auth/require-admin-client'
 
 function client() {
   if (!supabase) throw new Error('اتصال Supabase پیکربندی نشده است')
@@ -39,7 +40,8 @@ export async function listTaxonomies(kind: TaxonomyKind, input: { page?: number;
 export async function createTaxonomy(kind: TaxonomyKind, input: TaxonomyInput) {
   const target = table(kind)
   const value = taxonomyInputSchema.parse(input)
-  const { data, error } = await client().from(target).insert(row(target, value) as never).select().single()
+  const { client: adminClient } = await requireAdminClient()
+  const { data, error } = await adminClient.from(target).insert(row(target, value) as never).select().single()
   if (error) safeError(error)
   return data
 }
@@ -48,7 +50,8 @@ export async function updateTaxonomy(kind: TaxonomyKind, id: string, input: Part
   const target = table(kind)
   const itemId = catalogIdSchema.parse(id)
   const value = taxonomyUpdateSchema.parse(input)
-  const { data, error } = await client().from(target).update(row(target, value as TaxonomyInput) as never).eq('id', itemId).select().single()
+  const { client: adminClient } = await requireAdminClient()
+  const { data, error } = await adminClient.from(target).update(row(target, value as TaxonomyInput) as never).eq('id', itemId).select().single()
   if (error) safeError(error)
   return data
 }
@@ -57,7 +60,8 @@ export const softDeleteTaxonomy = (kind: TaxonomyKind, id: string) => updateTaxo
 export const restoreTaxonomy = (kind: TaxonomyKind, id: string) => updateTaxonomy(kind, id, { isActive: true })
 
 export async function hardDeleteTaxonomy(kind: TaxonomyKind, id: string) {
-  const { error } = await client().from(table(kind)).delete().eq('id', catalogIdSchema.parse(id))
+  const { client: adminClient } = await requireAdminClient('super_admin')
+  const { error } = await adminClient.from(table(kind)).delete().eq('id', catalogIdSchema.parse(id))
   if (error) safeError(error)
   return { success: true as const }
 }

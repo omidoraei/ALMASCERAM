@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { supabase } from '../supabase/client'
 import { inquiryAdminStatusSchema } from '../validation/admin-catalog'
+import { requireAdminClient } from '../auth/require-admin-client'
 
 const idSchema = z.uuid()
 
@@ -13,7 +14,8 @@ export async function updateInquiryStatus(inquiryId: string, nextStatus: unknown
   const id = idSchema.parse(inquiryId)
   const status = inquiryAdminStatusSchema.parse(nextStatus)
   const closedAt = status === 'closed' || status === 'cancelled' ? new Date().toISOString() : null
-  const { data, error } = await requireClient().from('inquiries').update({ status, closed_at: closedAt } as never).eq('id', id).select('id,status,updated_at').single()
+  const { client } = await requireAdminClient()
+  const { data, error } = await client.from('inquiries').update({ status, closed_at: closedAt } as never).eq('id', id).select('id,status,updated_at').single()
   if (error) throw error
   return data
 }

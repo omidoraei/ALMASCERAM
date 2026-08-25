@@ -1,24 +1,34 @@
 import { z } from 'zod'
-import { inquirySchema, otpSchema, type InquiryFormValues } from '../validation/inquiry'
+import { inquirySchema, type InquiryFormValues } from '../validation/inquiry'
 import { createInquiryFromBasketSchema, type CreateInquiryFromBasketInput } from '../validation/inquiry-basket'
 import { supabase } from '../supabase/client'
 import { useInquiryStore } from '../../store/inquiry-store'
 
 const inquiryIdSchema = z.uuid()
-const emailSchema = z.email()
+const pendingMagicInquirySchema = z.object({
+  email: z.email(),
+  note: z.string().max(2000).optional(),
+  createdAt: z.number().int().positive(),
+})
+const PENDING_MAGIC_INQUIRY_KEY = 'kara-pending-magic-inquiry'
+
+export const hasPendingMagicInquiry = () => localStorage.getItem(PENDING_MAGIC_INQUIRY_KEY) !== null
 
 function requireSupabase() {
   if (!supabase) throw new Error('اتصال Supabase پیکربندی نشده است')
   return supabase
 }
 
-/** Uses Supabase Auth directly; no Edge Function or application server is invoked. */
-export async function requestInquiryEmailOtp(input: InquiryFormValues) {
+/** Requests a PKCE Magic Link directly from Supabase Auth; no application server is invoked. */
+export async function requestInquiryMagicLink(input: InquiryFormValues) {
   const profile = inquirySchema.parse(input)
+  const pending = pendingMagicInquirySchema.parse({ email: profile.email, note: profile.notes, createdAt: Date.now() })
+  localStorage.setItem(PENDING_MAGIC_INQUIRY_KEY, JSON.stringify(pending))
   const { error } = await requireSupabase().auth.signInWithOtp({
     email: profile.email,
     options: {
       shouldCreateUser: true,
+      emailRedirectTo: `${window.location.origin}/auth/callback`,
       data: {
         customer_type: profile.customerType,
         full_name: profile.fullName,
@@ -28,16 +38,11 @@ export async function requestInquiryEmailOtp(input: InquiryFormValues) {
       },
     },
   })
-  if (error) throw new Error('ارسال کد تأیید ناموفق بود؛ کمی بعد دوباره تلاش کنید')
+  if (error) {
+    localStorage.removeItem(PENDING_MAGIC_INQUIRY_KEY)
+    throw new Error('ارسال لینک ورود ناموفق بود؛ کمی بعد دوباره تلاش کنید')
+  }
   return { email: profile.email }
-}
-
-export async function verifyInquiryEmailOtp(email: string, token: string) {
-  const validatedEmail = emailSchema.parse(email)
-  const { otp } = otpSchema.parse({ otp: token })
-  const { data, error } = await requireSupabase().auth.verifyOtp({ email: validatedEmail, token: otp, type: 'email' })
-  if (error || !data.session || !data.user) throw new Error('کد تأیید معتبر نیست یا منقضی شده است')
-  return { userId: data.user.id }
 }
 
 /**
@@ -78,11 +83,28 @@ export async function createInquiryFromBasket(input: CreateInquiryFromBasketInpu
   return { inquiryId }
 }
 
-export async function verifyOtpAndCreateInquiry(args: {
-  email: string
-  token: string
-  basket: CreateInquiryFromBasketInput
-}) {
-  await verifyInquiryEmailOtp(args.email, args.token)
-  return createInquiryFromBasket(args.basket)
+export async function completeMagicLinkInquiry(code?: string | null) {
+  const client = requireSupabase()
+  if (code) {
+    const { error } = await client.auth.exchangeCodeForSession(code)
+    if (error) throw new Error('لینک ورود معتبر نیست یا منقضی شده است')
+  }
+  const { data: { session } } = await client.auth.getSession()
+  if (!session) throw new Error('نشست احرازشده ایجاد نشد؛ لینک را دوباره درخواست کنید')
+
+  const rawPending = localStorage.getItem(PENDING_MAGIC_INQUIRY_KEY)
+  if (!rawPending) throw new Error('اطلاعات استعلام در این مرورگر پیدا نشد')
+  const pending = pendingMagicInquirySchema.parse(JSON.parse(rawPending) as unknown)
+  if (session.user.email?.trim().toLowerCase() !== pending.email.trim().toLowerCase()) {
+    throw new Error('ایمیل نشست با درخواست استعلام این مرورگر مطابقت ندارد')
+  }
+  if (Date.now() - pending.createdAt > 30 * 60 * 1000) throw new Error('درخواست استعلام منقضی شده است؛ دوباره اقدام کنید')
+
+  const items = useInquiryStore.getState().items
+  const result = await createInquiryFromBasket({
+    items: items.map((item) => ({ sizeId: item.size.id, quantity: item.quantity })),
+    note: pending.note,
+  })
+  localStorage.removeItem(PENDING_MAGIC_INQUIRY_KEY)
+  return result
 }

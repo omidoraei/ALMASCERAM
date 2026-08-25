@@ -1,73 +1,67 @@
-# React + TypeScript + Vite
+# Kara Ceram Catalog
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+کاتالوگ هوشمند B2B/B2C کاشی و سرامیک با استعلام قیمت، پنل ادمین و Supabase.
 
-Currently, two official plugins are available:
+## Canonical Architecture
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+این repository فقط یک runtime دارد:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+index.html → src/main.tsx → src/App.tsx
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- Build: Vite + React + TypeScript strict
+- Data/Auth/Storage: Supabase
+- Deployment: Vercel SPA
+- Routing: client-side path registry + catch-all rewrite
+- Next.js در runtime، build و deploy این repository استفاده نمی‌شود.
+- هیچ `src/app`، `next.config.*`، `next-env.d.ts` یا Next middleware وجود ندارد.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Auth
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Customer و Admin فقط با Supabase Magic Link وارد می‌شوند.
+- Password Auth و OTP کدی وجود ندارد.
+- Flow مرورگر PKCE است.
+- Callback مشترک در `/auth/callback`، session را exchange و مقصد را تعیین می‌کند.
+- Admin فقط با رکورد فعال در `admin_profiles` وارد پنل می‌شود.
+- Guard کلاینت دفاع UX است؛ RLS مرز امنیتی نهایی است.
+
+## SPA Deep Links
+
+`vercel.json` دارای fallback سراسری به `index.html` است. بنابراین refresh مسیرهای `/admin/**`، `/account/**`، `/products/**`، `/collections/**` و `/auth/callback` باید SPA را بارگذاری کند. فایل‌های build واقعی توسط filesystem/CDN استقرار سرو می‌شوند.
+
+## Canonical Migrations
+
+فقط سری `20250201*` داخل `supabase/migrations/` مجاز است. جزئیات در `docs/migrations.md` آمده است.
+
+```bash
+supabase db reset
 ```
+
+این دستور برای اجرای محلی به Supabase CLI و Docker نیاز دارد.
+
+## Service Role
+
+`SUPABASE_SERVICE_ROLE_KEY` فقط در `scripts/_supabase-admin.ts` مجاز است. هیچ فایل `src/**` نباید آن را import یا قرائت کند.
+
+## Commands
+
+```bash
+npm install
+npm run typecheck
+npm run lint
+npm run build
+npm run preview
+```
+
+## Security Verification
+
+```bash
+grep -R "signInWithPassword" -n src
+grep -R "SUPABASE_SERVICE_ROLE_KEY" -n src
+grep -R "_supabase-admin\|supabase/admin" -n src
+find supabase/migrations -maxdepth 1 -type f -printf '%f\n' | cut -c1-8 | sort -u
+find . -path './node_modules' -prune -o \( -name 'next.config.*' -o -name 'next-env.d.ts' -o -path './src/app/*' -o -name 'middleware.ts' \) -type f -print
+```
+
+خروجی سه grep اول و جستجوی Next artifact باید خالی باشد؛ Migration namespace باید فقط `20250201` باشد.

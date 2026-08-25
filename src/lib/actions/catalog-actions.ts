@@ -1,4 +1,5 @@
 import { supabase } from '../supabase/client'
+import { requireAdminClient } from '../auth/require-admin-client'
 import {
   catalogIdSchema,
   createCollectionSchema,
@@ -35,21 +36,24 @@ function throwSafeDatabaseError(error: DatabaseError): never {
 }
 
 async function insertRow(table: CatalogTable, payload: Record<string, unknown>) {
-  const { data, error } = await requireClient().from(table).insert(payload as never).select().single()
+  const { client } = await requireAdminClient()
+  const { data, error } = await client.from(table).insert(payload as never).select().single()
   if (error) throwSafeDatabaseError(error)
   return data
 }
 
 async function updateRow(table: CatalogTable, id: string, payload: Record<string, unknown>) {
   const rowId = catalogIdSchema.parse(id)
-  const { data, error } = await requireClient().from(table).update(payload as never).eq('id', rowId).select().single()
+  const { client } = await requireAdminClient()
+  const { data, error } = await client.from(table).update(payload as never).eq('id', rowId).select().single()
   if (error) throwSafeDatabaseError(error)
   return data
 }
 
 async function deleteRow(table: CatalogTable, id: string) {
   const rowId = catalogIdSchema.parse(id)
-  const { error } = await requireClient().from(table).delete().eq('id', rowId)
+  const { client } = await requireAdminClient('super_admin')
+  const { error } = await client.from(table).delete().eq('id', rowId)
   if (error) throwSafeDatabaseError(error)
   return { success: true as const, id: rowId }
 }

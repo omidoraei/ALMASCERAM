@@ -1,5 +1,6 @@
 import { supabase } from '../supabase/client'
 import { seoEntitySchema, seoInputSchema, type SeoEntity, type SeoInput } from '../validation/admin-entities'
+import { requireAdminClient } from '../auth/require-admin-client'
 
 const config = {
   collection: { table: 'collection_seo', idColumn: 'collection_id' },
@@ -35,7 +36,8 @@ export async function upsertSeoRecord(entity: SeoEntity, input: SeoInput) {
     robots_nofollow: value.robotsNofollow,
     json_ld: value.jsonLd,
   }
-  const { data, error } = await client().from(target.table).upsert(payload as never, { onConflict: target.idColumn }).select().single()
+  const { client: adminClient } = await requireAdminClient()
+  const { data, error } = await adminClient.from(target.table).upsert(payload as never, { onConflict: target.idColumn }).select().single()
   if (error) throw new Error(error.message.includes('row-level security') ? 'مجوز مدیریت SEO را ندارید' : 'ذخیره اطلاعات SEO انجام نشد')
   return data
 }

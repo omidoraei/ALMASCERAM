@@ -9,8 +9,8 @@ import {
 } from '@phosphor-icons/react'
 import { products, categories } from './data/catalog'
 import { useInquiryStore } from './store/inquiry-store'
-import { inquirySchema, otpSchema, type InquiryFormValues, type OtpFormValues } from './lib/validation/inquiry'
-import { requestInquiryEmailOtp, verifyOtpAndCreateInquiry } from './lib/actions/inquiry-actions'
+import { inquirySchema, type InquiryFormValues } from './lib/validation/inquiry'
+import { requestInquiryMagicLink } from './lib/actions/inquiry-actions'
 import { isSupabaseConfigured } from './lib/supabase/client'
 import type { Product, TileSize } from './types/catalog'
 
@@ -43,6 +43,7 @@ function Header({ count, onInquiry, onSearch }: { count: number; onInquiry: () =
           <button onClick={() => goTo('about')}>درباره کارا</button>
         </nav>
         <div className="header-actions">
+          <a className="admin-header-link" href="/admin/login" rel="nofollow" aria-label="ورود به پنل مدیریت کارا">ورود به پنل مدیریت</a>
           <button className="icon-button search-button" onClick={onSearch} aria-label="جستجو"><MagnifyingGlass size={21} /></button>
           <button className="inquiry-button" onClick={onInquiry}>
             <ClipboardText size={20} /><span>سبد استعلام</span>
@@ -58,6 +59,7 @@ function Header({ count, onInquiry, onSearch }: { count: number; onInquiry: () =
           <motion.nav className="mobile-nav" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
             <button onClick={() => goTo('catalog')}>محصولات</button><button onClick={() => goTo('collections')}>کالکشن‌ها</button>
             <button onClick={() => goTo('technical')}>راهنمای فنی</button><button onClick={() => goTo('about')}>درباره کارا</button>
+            <a className="admin-mobile-link" href="/admin/login" rel="nofollow" aria-label="ورود به پنل مدیریت کارا">ورود به پنل مدیریت</a>
           </motion.nav>
         )}
       </AnimatePresence>
@@ -223,67 +225,41 @@ function FormField({ label, error, children }: { label: string; error?: string; 
 }
 
 function InquiryDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { items, removeItem, setQuantity, clear } = useInquiryStore()
-  const [step, setStep] = useState<'cart' | 'form' | 'otp' | 'success'>('cart')
+  const { items, removeItem, setQuantity } = useInquiryStore()
+  const [step, setStep] = useState<'cart' | 'form' | 'magic'>('cart')
   const [email, setEmail] = useState('')
-  const [profile, setProfile] = useState<InquiryFormValues | null>(null)
   const [submissionError, setSubmissionError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [trackingCode, setTrackingCode] = useState('')
+  const [magicCooldown, setMagicCooldown] = useState(0)
   const form = useForm<InquiryFormValues>({ resolver: zodResolver(inquirySchema), defaultValues: { customerType: 'business', fullName: '', email: '', phone: '', company: '', projectCity: '', notes: '' } })
-  const otpForm = useForm<OtpFormValues>({ resolver: zodResolver(otpSchema), defaultValues: { otp: '' } })
   const customerType = useWatch({ control: form.control, name: 'customerType' })
-  const handleClose = () => { if (step === 'success') setStep('cart'); setSubmissionError(''); onClose() }
+  const handleClose = () => { setSubmissionError(''); onClose() }
+  useEffect(() => {
+    if (magicCooldown <= 0) return
+    const timer = window.setInterval(() => setMagicCooldown((value) => Math.max(0, value - 1)), 1000)
+    return () => window.clearInterval(timer)
+  }, [magicCooldown])
   const submitProfile = async (values: InquiryFormValues) => {
     setSubmitting(true)
     setSubmissionError('')
     try {
-      if (isSupabaseConfigured) await requestInquiryEmailOtp(values)
-      setProfile(values)
+      if (isSupabaseConfigured) await requestInquiryMagicLink(values)
       setEmail(values.email)
-      setStep('otp')
+      setMagicCooldown(60)
+      setStep('magic')
     } catch (error) {
-      setSubmissionError(error instanceof Error ? error.message : 'ارسال کد تأیید انجام نشد')
+      setSubmissionError(error instanceof Error ? error.message : 'ارسال لینک ورود انجام نشد')
     } finally {
       setSubmitting(false)
     }
   }
-  const verifyOtp = async ({ otp }: OtpFormValues) => {
-    setSubmitting(true)
-    setSubmissionError('')
-    try {
-      if (isSupabaseConfigured) {
-        if (!profile) throw new Error('اطلاعات استعلام کامل نیست')
-        const result = await verifyOtpAndCreateInquiry({
-          email,
-          token: otp,
-          basket: {
-            items: items.map((item) => ({ sizeId: item.size.id, quantity: item.quantity })),
-            note: profile.notes,
-          },
-        })
-        setTrackingCode(result.inquiryId.split('-')[0].toUpperCase())
-      } else {
-        if (otp !== '246810') throw new Error('کد واردشده صحیح نیست؛ از کد نمایشی استفاده کنید')
-        clear()
-        setTrackingCode('DEMO-۸۲۱۶')
-      }
-      setStep('success')
-      form.reset()
-    } catch (error) {
-      setSubmissionError(error instanceof Error ? error.message : 'ثبت استعلام انجام نشد')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   return (
     <AnimatePresence>
       {open && <motion.div className="drawer-layer" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
         <button className="drawer-overlay" onClick={handleClose} aria-label="بستن سبد" />
         <motion.aside className="inquiry-drawer" role="dialog" aria-modal="true" aria-label="سبد استعلام" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', damping: 30, stiffness: 300 }}>
-          <div className="drawer-header"><div><small>{step === 'cart' ? 'مرحله ۱ از ۳' : step === 'form' ? 'مرحله ۲ از ۳' : step === 'otp' ? 'مرحله ۳ از ۳' : 'ثبت نهایی'}</small><h2>{step === 'success' ? 'استعلام ثبت شد' : 'سبد استعلام قیمت'}</h2></div><button onClick={handleClose} aria-label="بستن"><X size={22} /></button></div>
-          <div className="step-line"><i className={step !== 'cart' ? 'done' : 'active'} /><i className={step === 'form' ? 'active' : step === 'otp' || step === 'success' ? 'done' : ''} /><i className={step === 'otp' ? 'active' : step === 'success' ? 'done' : ''} /></div>
+          <div className="drawer-header"><div><small>{step === 'cart' ? 'مرحله ۱ از ۳' : step === 'form' ? 'مرحله ۲ از ۳' : 'مرحله ۳ از ۳'}</small><h2>سبد استعلام قیمت</h2></div><button onClick={handleClose} aria-label="بستن"><X size={22} /></button></div>
+          <div className="step-line"><i className={step !== 'cart' ? 'done' : 'active'} /><i className={step === 'form' ? 'active' : step === 'magic' ? 'done' : ''} /><i className={step === 'magic' ? 'active' : ''} /></div>
           {step === 'cart' && <>
             <div className="drawer-note"><Sparkle size={18} /> قیمت‌ها بر اساس متراژ، محل پروژه و شرایط تحویل توسط کارشناس اعلام می‌شوند.</div>
             <div className="drawer-items">{items.length === 0 ? <div className="empty-cart"><ClipboardText size={38} weight="light" /><h3>سبد شما خالی است</h3><p>محصول و سایز مورد نظر را از کاتالوگ انتخاب کنید.</p><button onClick={handleClose}>بازگشت به محصولات</button></div> : items.map((item) =>
@@ -300,14 +276,14 @@ function InquiryDrawer({ open, onClose }: { open: boolean; onClose: () => void }
             <FormField label="توضیحات پروژه (اختیاری)" error={form.formState.errors.notes?.message}><textarea {...form.register('notes')} rows={3} placeholder="متراژ تقریبی، زمان تحویل یا نکات مهم..." /></FormField>
             <div className="form-security"><ShieldCheck size={17} /> اطلاعات شما فقط برای پاسخ به این استعلام استفاده می‌شود.</div>
             {submissionError && <div className="submission-error">{submissionError}</div>}
-            <div className="form-actions"><button type="button" onClick={() => setStep('cart')}><ArrowRight size={17} /> بازگشت</button><button type="submit" className="primary-button" disabled={submitting}>{submitting ? 'در حال ارسال...' : 'ارسال کد تأیید'} {!submitting && <ArrowLeft size={17} />}</button></div>
+            <div className="form-actions"><button type="button" onClick={() => setStep('cart')}><ArrowRight size={17} /> بازگشت</button><button type="submit" className="primary-button" disabled={submitting || magicCooldown > 0}>{submitting ? 'در حال ارسال...' : magicCooldown > 0 ? `${magicCooldown.toLocaleString('fa-IR')} ثانیه تا ارسال دوباره` : 'ارسال لینک ورود'} {!submitting && magicCooldown === 0 && <ArrowLeft size={17} />}</button></div>
           </form>}
-          {step === 'otp' && <form className="otp-form" onSubmit={otpForm.handleSubmit(verifyOtp)}>
-            <div className="otp-icon"><EnvelopeSimple size={30} /></div><h3>ایمیل خود را بررسی کنید</h3><p>کد تأیید ۶ رقمی به <b dir="ltr">{email}</b> ارسال شد.</p>
-            {!isSupabaseConfigured && <div className="demo-code">نسخه نمایشی — کد تأیید: <b>۲۴۶۸۱۰</b></div>}<input dir="ltr" inputMode="numeric" maxLength={6} autoFocus {...otpForm.register('otp')} placeholder="------" aria-label="کد تأیید" />
-            {otpForm.formState.errors.otp && <span className="field-error">{otpForm.formState.errors.otp.message}</span>}{submissionError && <div className="submission-error">{submissionError}</div>}<button className="primary-button" type="submit" disabled={submitting}>{submitting ? 'در حال ثبت...' : 'تأیید و ثبت استعلام'}</button><button type="button" className="otp-back" onClick={() => setStep('form')}>اصلاح اطلاعات</button>
-          </form>}
-          {step === 'success' && <div className="success-state"><div><CheckCircle size={58} weight="light" /></div><h3>درخواست شما با موفقیت ثبت شد.</h3><p>کارشناس کارا پس از بررسی موجودی و مشخصات پروژه، حداکثر تا یک روز کاری با شما در ارتباط خواهد بود.</p><span>کد پیگیری</span><strong>{trackingCode}</strong><button className="primary-button" onClick={handleClose}>بازگشت به سایت</button></div>}
+          {step === 'magic' && <div className="otp-form magic-link-sent">
+            <div className="otp-icon"><EnvelopeSimple size={30} /></div><h3>لینک ورود ارسال شد</h3><p>ایمیل <b dir="ltr">{email}</b> را باز کنید و روی لینک امن کلیک کنید. پس از بازگشت، استعلام شما خودکار ثبت می‌شود.</p>
+            <div className="demo-code">Magic Link یک‌بارمصرف است و نیازی به رمز یا کد دستی ندارد.</div>
+            {!isSupabaseConfigured && <button className="primary-button" type="button" onClick={() => { window.location.href = '/auth/callback?demo=1' }}>شبیه‌سازی بازگشت از ایمیل</button>}
+            <button type="button" className="otp-back" onClick={() => setStep('form')}>{magicCooldown > 0 ? `اصلاح ایمیل · ارسال دوباره تا ${magicCooldown.toLocaleString('fa-IR')} ثانیه` : 'اصلاح ایمیل یا ارسال دوباره'}</button>
+          </div>}
         </motion.aside>
       </motion.div>}
     </AnimatePresence>
@@ -315,7 +291,7 @@ function InquiryDrawer({ open, onClose }: { open: boolean; onClose: () => void }
 }
 
 function Footer() {
-  return <footer id="about"><div className="footer-top"><div><Brand /><p>سطوح پرسلانی برای معماری امروز؛<br />ساخته‌شده با دقت، برای ماندن.</p></div><div><b>دسترسی سریع</b><button onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}>محصولات</button><button onClick={() => document.getElementById('collections')?.scrollIntoView({ behavior: 'smooth' })}>کالکشن‌ها</button><button onClick={() => document.getElementById('technical')?.scrollIntoView({ behavior: 'smooth' })}>راهنمای فنی</button></div><div><b>ارتباط با ما</b><span>تهران، بلوار میرداماد</span><a href="tel:+982188765400" dir="ltr">+98 21 8876 5400</a><a href="mailto:project@karaceram.ir">project@karaceram.ir</a></div></div><div className="footer-bottom"><span>© ۱۴۰۴ کارا سرام. تمامی حقوق محفوظ است.</span><span>کاتالوگ حرفه‌ای محصولات پرسلانی</span></div></footer>
+  return <footer id="about"><div className="footer-top"><div><Brand /><p>سطوح پرسلانی برای معماری امروز؛<br />ساخته‌شده با دقت، برای ماندن.</p></div><div><b>دسترسی سریع</b><button onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}>محصولات</button><button onClick={() => document.getElementById('collections')?.scrollIntoView({ behavior: 'smooth' })}>کالکشن‌ها</button><button onClick={() => document.getElementById('technical')?.scrollIntoView({ behavior: 'smooth' })}>راهنمای فنی</button><a className="admin-entry-link" href="/admin/login" rel="nofollow" aria-label="ورود به پنل مدیریت کارا">ورود به پنل مدیریت</a></div><div><b>ارتباط با ما</b><span>تهران، بلوار میرداماد</span><a href="tel:+982188765400" dir="ltr">+98 21 8876 5400</a><a href="mailto:project@karaceram.ir">project@karaceram.ir</a></div></div><div className="footer-bottom"><span>© ۱۴۰۴ کارا سرام. تمامی حقوق محفوظ است.</span><span>کاتالوگ حرفه‌ای محصولات پرسلانی</span></div></footer>
 }
 
 export default function KaraApp() {

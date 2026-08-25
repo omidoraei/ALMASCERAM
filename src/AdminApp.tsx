@@ -12,6 +12,7 @@ import { supabase, isSupabaseConfigured } from './lib/supabase/client'
 import { createProduct, deleteProduct, listProducts, listSeries, restoreProduct, updateProduct } from './lib/actions/catalog-actions'
 import { getAdminInquiries } from './lib/actions/admin-actions'
 import { getAdminDashboardCounts } from './lib/actions/dashboard-actions'
+import { requestMagicLink } from './lib/actions/auth-actions'
 import { adminProductFormSchema, type AdminProductFormValues, type InquiryAdminStatus } from './lib/validation/admin-catalog'
 import { ADMIN_ROUTES, adminRouteFromPath, type AdminRouteId } from './admin/routes'
 import { TaxonomyPage } from './admin/pages/TaxonomyPage'
@@ -86,9 +87,16 @@ function AdminBrand() {
 
 function AdminLogin({ onAuthenticated }: { onAuthenticated: (profile: AdminProfile) => void }) {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [error, setError] = useState(() => new URLSearchParams(window.location.search).has('unauthorized') ? 'این حساب دسترسی مدیریت فعال ندارد' : '')
   const [loading, setLoading] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const timer = window.setInterval(() => setCooldown((value) => Math.max(0, value - 1)), 1000)
+    return () => window.clearInterval(timer)
+  }, [cooldown])
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -96,18 +104,12 @@ function AdminLogin({ onAuthenticated }: { onAuthenticated: (profile: AdminProfi
     setLoading(true)
     try {
       if (!isSupabaseConfigured || !supabase) {
-        if (!email || !password) throw new Error('ایمیل و رمز عبور را وارد کنید')
+        if (!email) throw new Error('ایمیل را وارد کنید')
         onAuthenticated({ fullName: 'مدیر نسخه نمایشی', role: 'super_admin' })
         return
       }
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-      if (signInError || !data.user) throw new Error('ایمیل یا رمز عبور صحیح نیست')
-      const { data: profile, error: profileError } = await supabase.from('admin_profiles').select('full_name,role,is_active').eq('user_id', data.user.id).eq('is_active', true).maybeSingle()
-      if (profileError || !profile) {
-        await supabase.auth.signOut()
-        throw new Error('این حساب دسترسی مدیریت فعال ندارد')
-      }
-      onAuthenticated({ fullName: profile.full_name, role: profile.role })
+      await requestMagicLink({ email, next: '/admin', shouldCreateUser: false })
+      setSent(true); setCooldown(60)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'ورود انجام نشد')
     } finally {
@@ -125,13 +127,13 @@ function AdminLogin({ onAuthenticated }: { onAuthenticated: (profile: AdminProfi
       <div className="login-panel-head"><AdminBrand /><button onClick={() => { window.location.href = '/' }}>بازگشت به سایت <ArrowLeft size={15} /></button></div>
       <form onSubmit={submit}>
         <div className="login-shield"><ShieldCheck size={27} /></div>
-        <small>ورود کارکنان مجاز</small><h2>به پنل مدیریت خوش آمدید.</h2><p>برای ادامه از حساب سازمانی خود استفاده کنید.</p>
-        {!isSupabaseConfigured && <div className="admin-demo-note"><b>نسخه نمایشی</b><span>یک ایمیل و رمز دلخواه وارد کنید.</span></div>}
+        <small>ورود کارکنان مجاز</small><h2>ورود امن بدون رمز عبور.</h2><p>لینک یک‌بارمصرف به ایمیل سازمانی شما ارسال می‌شود.</p>
+        {!isSupabaseConfigured && <div className="admin-demo-note"><b>نسخه نمایشی</b><span>یک ایمیل دلخواه وارد کنید.</span></div>}
+        {sent && <div className="admin-demo-note"><b>لینک ارسال شد</b><span>ایمیل خود را بررسی کنید.</span></div>}
         <label><span>ایمیل سازمانی</span><input dir="ltr" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@karaceram.ir" autoComplete="email" /></label>
-        <label><span>رمز عبور</span><input dir="ltr" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="••••••••" autoComplete="current-password" /></label>
         {error && <div className="admin-form-error">{error}</div>}
-        <button className="admin-login-submit" disabled={loading}>{loading ? 'در حال بررسی...' : 'ورود امن به پنل'} <ArrowLeft size={17} /></button>
-        <div className="login-security"><ShieldCheck size={15} /> نشست شما با Supabase Auth و RLS محافظت می‌شود.</div>
+        <button className="admin-login-submit" disabled={loading || cooldown > 0}>{loading ? 'در حال ارسال...' : cooldown > 0 ? `ارسال دوباره تا ${cooldown.toLocaleString('fa-IR')} ثانیه` : 'ارسال Magic Link'} <ArrowLeft size={17} /></button>
+        <div className="login-security"><ShieldCheck size={15} /> Magic Link، Supabase Auth و RLS از نشست محافظت می‌کنند.</div>
       </form>
     </section>
   </main>
@@ -242,11 +244,32 @@ export default function AdminApp() {
     if (!isSupabaseConfigured || !client) return
     let active = true
     const checkSession = async () => {
-      const { data: { session } } = await client.auth.getSession()
-      if (!session) { if (active) setAuth('guest'); return }
+      let { data: { session } } = await client.auth.getSession()
+      const code = new URLSearchParams(window.location.search).get('code')
+      if (!session && code) {
+        const { data, error } = await client.auth.exchangeCodeForSession(code)
+        if (!error) {
+          session = data.session
+          window.history.replaceState({}, '', '/admin')
+        }
+      }
+      if (!session) {
+        if (active) {
+          if (window.location.pathname !== '/admin/login') window.history.replaceState({}, '', `/admin/login${window.location.search}`)
+          setAuth('guest')
+        }
+        return
+      }
       const { data: admin } = await client.from('admin_profiles').select('full_name,role,is_active').eq('user_id', session.user.id).eq('is_active', true).maybeSingle()
-      if (!admin) { await client.auth.signOut(); if (active) setAuth('guest'); return }
-      if (active) { setProfile({ fullName: admin.full_name, role: admin.role }); setAuth('admin'); await refreshData() }
+      if (!admin) {
+        await client.auth.signOut()
+        if (active) { window.history.replaceState({}, '', '/admin/login?unauthorized=1'); setAuth('guest') }
+        return
+      }
+      if (active) {
+        if (window.location.pathname === '/admin/login') window.history.replaceState({}, '', '/admin')
+        setProfile({ fullName: admin.full_name, role: admin.role }); setAuth('admin'); await refreshData()
+      }
     }
     void checkSession()
     return () => { active = false }
@@ -274,7 +297,7 @@ export default function AdminApp() {
   const logout = async () => { if (supabase) await supabase.auth.signOut(); setAuth('guest'); setProfile(null) }
 
   if (auth === 'loading') return <div className="admin-loading" dir="rtl"><span className="admin-spinner" /><p>در حال اعتبارسنجی نشست امن...</p></div>
-  if (auth === 'guest') return <AdminLogin onAuthenticated={(nextProfile) => { setProfile(nextProfile); setAuth('admin'); if (isSupabaseConfigured) void refreshData() }} />
+  if (auth === 'guest') return <AdminLogin onAuthenticated={(nextProfile) => { window.history.replaceState({}, '', '/admin'); setProfile(nextProfile); setAuth('admin'); if (isSupabaseConfigured) void refreshData() }} />
 
   const navGroups = [
     { label: 'اصلی', items: [{ id: 'dashboard' as const, label: 'نمای کلی', icon: SquaresFour }, { id: 'inquiries' as const, label: 'استعلام‌ها', icon: ClipboardText, badge: inquiries.filter((item) => item.status === 'submitted').length }] },

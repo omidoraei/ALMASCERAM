@@ -11,9 +11,3 @@ export const inquirySchema = z.object({
 })
 
 export type InquiryFormValues = z.infer<typeof inquirySchema>
-
-export const otpSchema = z.object({
-  otp: z.string().regex(/^\d{6}$/, 'کد تأیید باید ۶ رقم باشد'),
-})
-
-export type OtpFormValues = z.infer<typeof otpSchema>

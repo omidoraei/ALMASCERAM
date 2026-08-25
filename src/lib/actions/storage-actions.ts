@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { supabase } from '../supabase/client'
+import { requireAdminClient } from '../auth/require-admin-client'
 
 export const publicCatalogBucketSchema = z.enum(['catalog-media', 'catalog-documents', 'seo-media'])
 export type PublicCatalogBucket = z.infer<typeof publicCatalogBucketSchema>
@@ -61,7 +62,7 @@ export async function uploadPublicCatalogAsset(input: {
   const extension = extensionByMime[input.file.type]
   if (!extension) throw new Error('پسوند امن برای این فایل تعریف نشده است')
   const path = `${validated.folder}/${crypto.randomUUID()}.${extension}`
-  const client = requireClient()
+  const { client } = await requireAdminClient()
   const { error } = await client.storage.from(validated.bucket).upload(path, input.file, {
     cacheControl: '31536000',
     contentType: input.file.type,
@@ -81,7 +82,8 @@ export function getPublicCatalogAssetUrl(bucket: PublicCatalogBucket, path: stri
 
 export async function deletePublicCatalogAssets(input: { bucket: PublicCatalogBucket; paths: string[] }) {
   const validated = deleteInputSchema.parse(input)
-  const { data, error } = await requireClient().storage.from(validated.bucket).remove(validated.paths)
+  const { client } = await requireAdminClient()
+  const { data, error } = await client.storage.from(validated.bucket).remove(validated.paths)
   if (error) throw new Error(error.message.includes('row-level security') ? 'فقط مدیر فعال اجازه حذف فایل دارد' : 'حذف فایل انجام نشد')
   return { deleted: data.map((item) => item.name) }
 }
