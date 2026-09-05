@@ -1,6 +1,36 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /account
+Disallow: /account/*
+Disallow: /auth/callback
 
+# Search engine bots
+User-agent: Googlebot
+Allow: /
 Disallow: /admin
 Disallow: /account
 Disallow: /auth/callback
+
+User-agent: Bingbot
+Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /auth/callback
+
+# AI training crawlers - allow but cite source
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+# Reference the sitemap for full URL coverage
+Sitemap: https://almasceram.ir/sitemap.xml

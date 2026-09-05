@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { FilePdf, Image, UploadSimple } from '@phosphor-icons/react'
-import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from './Dialog'
 import { uploadSizeMedia, uploadSizePdf } from '../../lib/actions/size-media-actions'
 import { isSupabaseConfigured } from '../../lib/supabase/client'
 

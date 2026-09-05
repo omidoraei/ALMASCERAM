@@ -4,22 +4,65 @@ import { createInquiryFromBasketSchema, type CreateInquiryFromBasketInput } from
 import { supabase } from '../supabase/client'
 import { useInquiryStore } from '../../store/inquiry-store'
 
+/** UUID schema for the inquiry ID returned by the RPC. @internal */
 const inquiryIdSchema = z.uuid()
+
+/**
+ * Schema for the pending-inquiry payload stored in localStorage between
+ * the Magic Link request and the callback completion. Validated strictly
+ * to defend against tampering from other browser tabs.
+ * @internal
+ */
 const pendingMagicInquirySchema = z.object({
   email: z.email(),
   note: z.string().max(2000).optional(),
   createdAt: z.number().int().positive(),
 })
-const PENDING_MAGIC_INQUIRY_KEY = 'kara-pending-magic-inquiry'
 
-export const hasPendingMagicInquiry = () => localStorage.getItem(PENDING_MAGIC_INQUIRY_KEY) !== null
+/** localStorage key for the in-flight inquiry awaiting Magic Link confirmation. */
+const PENDING_MAGIC_INQUIRY_KEY = 'almasceram-pending-magic-inquiry'
 
+/**
+ * Returns true when a Magic Link was requested but the user has not yet
+ * returned from their email inbox. Used by the `/auth/callback` page to
+ * decide whether to run the inquiry-completion flow after sign-in.
+ *
+ * @returns `true` if there is a pending inquiry in localStorage
+ */
+export const hasPendingMagicInquiry = () => typeof window !== 'undefined' && localStorage.getItem(PENDING_MAGIC_INQUIRY_KEY) !== null
+
+/**
+ * Returns the public Supabase client or throws if not configured.
+ * @throws Error when Supabase environment variables are missing
+ * @internal
+ */
 function requireSupabase() {
   if (!supabase) throw new Error('اتصال Supabase پیکربندی نشده است')
   return supabase
 }
 
-/** Requests a PKCE Magic Link directly from Supabase Auth; no application server is invoked. */
+/**
+ * Requests a PKCE Magic Link directly from Supabase Auth. Persists the
+ * form payload in localStorage so the inquiry can be completed after the
+ * user confirms the link. No application server is invoked.
+ *
+ * @param input - The validated inquiry form values
+ * @returns An object with the email that received the link
+ * @throws ZodError if the input fails schema validation
+ * @throws Error when Supabase is unconfigured or the request fails
+ *
+ * @example
+ * await requestInquiryMagicLink({
+ *   customerType: 'business',
+ *   fullName: 'علی رضایی',
+ *   email: 'ali@example.com',
+ *   phone: '09123456789',
+ *   projectCity: 'تهران',
+ *   notes: 'پروژه اداری'
+ * })
+ * // → { email: 'ali@example.com' }
+ * // User receives an email; clicking the link lands on /auth/callback
+ */
 export async function requestInquiryMagicLink(input: InquiryFormValues) {
   const profile = inquirySchema.parse(input)
   const pending = pendingMagicInquirySchema.parse({ email: profile.email, note: profile.notes, createdAt: Date.now() })
@@ -47,7 +90,24 @@ export async function requestInquiryMagicLink(input: InquiryFormValues) {
 
 /**
  * Performs exactly one authenticated RPC call for the whole basket.
- * localStorage is cleared only after PostgreSQL returns the committed inquiry UUID.
+ * The local inquiry-cart state is cleared only after PostgreSQL returns
+ * the committed inquiry UUID, so a network failure leaves the user able
+ * to retry without losing their selections.
+ *
+ * @param input - The basket to submit (1-50 items, no duplicate sizeIds)
+ * @returns The newly created inquiry's UUID
+ * @throws ZodError if the input fails schema validation
+ * @throws Error with a localized message for known RPC failure codes
+ *
+ * @example
+ * const { inquiryId } = await createInquiryFromBasket({
+ *   items: [
+ *     { sizeId: 'a1', quantity: 2 },
+ *     { sizeId: 'b2', quantity: 1 }
+ *   ],
+ *   note: 'پروژه اداری'
+ * })
+ * // → { inquiryId: 'uuid' }
  */
 export async function createInquiryFromBasket(input: CreateInquiryFromBasketInput) {
   const validated = createInquiryFromBasketSchema.parse(input)
@@ -83,6 +143,30 @@ export async function createInquiryFromBasket(input: CreateInquiryFromBasketInpu
   return { inquiryId }
 }
 
+/**
+ * Completes the inquiry after a Magic Link sign-in. Called from the
+ * `/auth/callback` page once the Supabase session is established. Validates
+ * the pending payload (email match, expiry ≤ 30 minutes) and delegates to
+ * {@link createInquiryFromBasket} for the atomic RPC.
+ *
+ * @param code - Optional authorization code from the URL. If omitted, an
+ *               existing session is reused.
+ * @returns The created inquiry ID
+ * @throws Error when:
+ *   - The code is invalid or expired
+ *   - No session was established
+ *   - The pending payload is missing or tampered
+ *   - The signed-in email does not match the original request
+ *   - More than 30 minutes have passed since the original request
+ *   - The RPC fails (with localized message)
+ *
+ * @example
+ * // In the /auth/callback page:
+ * const search = new URLSearchParams(window.location.search)
+ * const code = search.get('code')
+ * const { inquiryId } = await completeMagicLinkInquiry(code)
+ * // → { inquiryId: 'uuid' }
+ */
 export async function completeMagicLinkInquiry(code?: string | null) {
   const client = requireSupabase()
   if (code) {

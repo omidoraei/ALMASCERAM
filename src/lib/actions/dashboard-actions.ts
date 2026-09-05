@@ -1,4 +1,5 @@
 import { supabase } from '../supabase/client'
+import { cached } from '../utils/cache'
 
 function client() {
   if (!supabase) throw new Error('اتصال Supabase پیکربندی نشده است')
@@ -13,10 +14,12 @@ async function count(table: 'collections' | 'series' | 'products' | 'sizes' | 'i
   return total ?? 0
 }
 
-export async function getAdminDashboardCounts() {
-  const [collections, series, products, sizes, submitted, inReview, quoted] = await Promise.all([
-    count('collections'), count('series'), count('products'), count('sizes'),
-    count('inquiries', 'submitted'), count('inquiries', 'in_review'), count('inquiries', 'quoted'),
-  ])
-  return { collections, series, products, sizes, inquiries: { submitted, inReview, quoted } }
+export function getAdminDashboardCounts() {
+  return cached('admin:dashboard-counts', async () => {
+    const [collections, series, products, sizes, submitted, inReview, quoted] = await Promise.all([
+      count('collections'), count('series'), count('products'), count('sizes'),
+      count('inquiries', 'submitted'), count('inquiries', 'in_review'), count('inquiries', 'quoted'),
+    ])
+    return { collections, series, products, sizes, inquiries: { submitted, inReview, quoted } }
+  }, 30_000)
 }

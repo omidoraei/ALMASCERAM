@@ -2,8 +2,15 @@ import { useEffect, useState } from 'react'
 import { ArrowRight, CheckCircle, EnvelopeSimple, SignOut, UserCircle } from '@phosphor-icons/react'
 import { requestMagicLink } from './lib/actions/auth-actions'
 import { isSupabaseConfigured, supabase } from './lib/supabase/client'
+import { useSEO } from './lib/seo/useSEO'
 
 export default function AccountApp() {
+  useSEO({
+    title: 'حساب مشتری',
+    description: 'ورود و مدیریت حساب مشتریان ALMASCERAM با Magic Link.',
+    noindex: true,
+    canonicalPath: '/account',
+  })
   const [loading, setLoading] = useState(isSupabaseConfigured)
   const [email, setEmail] = useState('')
   const [userEmail, setUserEmail] = useState<string | null>(null)

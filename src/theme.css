@@ -1,0 +1,92 @@
+/* ============================================================
+   ALMASCERAM Theme System
+   ------------------------------------------------------------
+   Single source of truth for color tokens, with light (default)
+   and dark variants. Components reference only the CSS variables
+   defined in :root / [data-theme="dark"], so flipping the theme
+   is a single attribute write and one inline script.
+   ============================================================ */
+
+:root {
+  /* Light theme tokens (default) */
+  --color-bg: #f4f2ed;
+  --color-bg-elevated: #faf8f5;
+  --color-bg-muted: #efede7;
+  --color-bg-inverted: #232726;
+  --color-surface: #eeece6;
+  --color-surface-hover: #e5e3dd;
+  --color-line: #d9d5cc;
+  --color-line-soft: #ddd9d1;
+  --color-text: #222625;
+  --color-text-soft: #626562;
+  --color-text-muted: #777a77;
+  --color-text-inverted: #f4f2ed;
+  --color-accent: #8b7355;
+  --color-accent-hover: #765f44;
+  --color-accent-soft: #e5ded4;
+  --color-danger: #9c5f54;
+  --color-success: #60765d;
+  --color-warning: #806b48;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --color-bg: #1a1d1c;
+  --color-bg-elevated: #232726;
+  --color-bg-muted: #1f2221;
+  --color-bg-inverted: #efede7;
+  --color-surface: #2a2d2c;
+  --color-surface-hover: #343736;
+  --color-line: #393d3c;
+  --color-line-soft: #2f3231;
+  --color-text: #efede7;
+  --color-text-soft: #b3b7b4;
+  --color-text-muted: #8a8d8a;
+  --color-text-inverted: #232726;
+  --color-accent: #c2a884;
+  --color-accent-hover: #d4be9d;
+  --color-accent-soft: #3a322a;
+  --color-danger: #c9857a;
+  --color-success: #9bbb96;
+  --color-warning: #c2a96e;
+
+  color-scheme: dark;
+}
+
+/* Honor the user's system preference when no explicit choice has been made. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg: #1a1d1c;
+    --color-bg-elevated: #232726;
+    --color-bg-muted: #1f2221;
+    --color-bg-inverted: #efede7;
+    --color-surface: #2a2d2c;
+    --color-surface-hover: #343736;
+    --color-line: #393d3c;
+    --color-line-soft: #2f3231;
+    --color-text: #efede7;
+    --color-text-soft: #b3b7b4;
+    --color-text-muted: #8a8d8a;
+    --color-text-inverted: #232726;
+    --color-accent: #c2a884;
+    --color-accent-hover: #d4be9d;
+    --color-accent-soft: #3a322a;
+    --color-danger: #c9857a;
+    --color-success: #9bbb96;
+    --color-warning: #c2a96e;
+    color-scheme: dark;
+  }
+}
+
+/* Respect reduced-motion across the whole app. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

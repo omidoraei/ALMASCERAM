@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import {
-  ArrowLeft, ArrowSquareOut, Bell, CheckCircle, ClipboardText, Clock, Cube, Gear,
-  List, MagnifyingGlass, Package, PencilSimple, Plus, ShieldCheck, SignOut,
+  ArrowLeft, CheckCircle, ClipboardText, Cube, Gear,
+  List, MagnifyingGlass, Package, PencilSimple, Plus, ShieldCheck,
   SquaresFour, Stack, Trash, TrendUp, X,
 } from '@phosphor-icons/react'
 import { products as publicProducts } from './data/catalog'
 import { supabase, isSupabaseConfigured } from './lib/supabase/client'
+import { AdminTopbar } from './admin/components/AdminTopbar'
+import { AdminSidebar, type NavGroup } from './admin/components/AdminSidebar'
 import { createProduct, deleteProduct, listProducts, listSeries, restoreProduct, updateProduct } from './lib/actions/catalog-actions'
 import { getAdminInquiries } from './lib/actions/admin-actions'
 import { getAdminDashboardCounts } from './lib/actions/dashboard-actions'
@@ -19,6 +21,7 @@ import { TaxonomyPage } from './admin/pages/TaxonomyPage'
 import { CatalogResourcePage } from './admin/pages/CatalogResourcePage'
 import { SeoPage } from './admin/pages/SeoPage'
 import { InquiriesPage } from './admin/pages/InquiriesPage'
+import { useSEO } from './lib/seo/useSEO'
 
 const faNumber = (value: number | string) => new Intl.NumberFormat('fa-IR').format(Number(value))
 
@@ -119,9 +122,9 @@ function AdminLogin({ onAuthenticated }: { onAuthenticated: (profile: AdminProfi
 
   return <main className="admin-login-page" dir="rtl">
     <section className="admin-login-visual">
-      <img src="/images/hero-architecture.jpg" alt="معماری کارا" />
+      <img src="/images/hero-architecture.jpg" alt="معماری الماس" loading="lazy" decoding="async" width="800" height="600" />
       <div className="login-visual-copy"><span>سامانه مدیریت کاتالوگ</span><h1>جزئیات دقیق،<br />مدیریت یکپارچه.</h1><p>محصولات، مشخصات فنی سایزها و استعلام‌های پروژه را در یک محیط امن مدیریت کنید.</p></div>
-      <small>SECURE ADMIN CONSOLE · KARA CERAM</small>
+      <small>SECURE ADMIN CONSOLE · ALMASCERAM</small>
     </section>
     <section className="admin-login-panel">
       <div className="login-panel-head"><AdminBrand /><button onClick={() => { window.location.href = '/' }}>بازگشت به سایت <ArrowLeft size={15} /></button></div>
@@ -130,7 +133,7 @@ function AdminLogin({ onAuthenticated }: { onAuthenticated: (profile: AdminProfi
         <small>ورود کارکنان مجاز</small><h2>ورود امن بدون رمز عبور.</h2><p>لینک یک‌بارمصرف به ایمیل سازمانی شما ارسال می‌شود.</p>
         {!isSupabaseConfigured && <div className="admin-demo-note"><b>نسخه نمایشی</b><span>یک ایمیل دلخواه وارد کنید.</span></div>}
         {sent && <div className="admin-demo-note"><b>لینک ارسال شد</b><span>ایمیل خود را بررسی کنید.</span></div>}
-        <label><span>ایمیل سازمانی</span><input dir="ltr" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@karaceram.ir" autoComplete="email" /></label>
+        <label><span>ایمیل سازمانی</span><input dir="ltr" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="admin@almasceram.ir" autoComplete="email" /></label>
         {error && <div className="admin-form-error">{error}</div>}
         <button className="admin-login-submit" disabled={loading || cooldown > 0}>{loading ? 'در حال ارسال...' : cooldown > 0 ? `ارسال دوباره تا ${cooldown.toLocaleString('fa-IR')} ثانیه` : 'ارسال Magic Link'} <ArrowLeft size={17} /></button>
         <div className="login-security"><ShieldCheck size={15} /> Magic Link، Supabase Auth و RLS از نشست محافظت می‌کنند.</div>
@@ -183,7 +186,7 @@ function DashboardView({ products, inquiries, counts, onNavigate }: { products: 
     <section className="admin-stats">{stats.map(({ label, value, change, icon: Icon }, index) => <article key={label}><div><span>{label}</span><strong>{faNumber(value)}</strong><small className={index === 2 ? '' : 'positive'}>{index !== 2 && <TrendUp size={13} />} {change}</small></div><i><Icon size={24} weight="light" /></i></article>)}</section>
     <section className="admin-dashboard-grid">
       <article className="admin-chart-card"><header><div><small>روند استعلام‌ها</small><h3>عملکرد ۱۲ هفته اخیر</h3></div><span>۱۲ هفته اخیر</span></header><div className="chart-summary"><strong>۱۴۸</strong><span>مجموع استعلام‌ها</span><b><TrendUp size={14} /> ۱۸٫۴٪</b></div><div className="bar-chart">{bars.map((height, index) => <div key={index}><i style={{ height: `${height}%` }} className={index === bars.length - 1 ? 'current' : ''} /><small>{index % 2 === 0 ? faNumber(index + 1) : ''}</small></div>)}</div></article>
-      <article className="admin-activity-card"><header><div><small>فعالیت کاتالوگ</small><h3>آخرین تغییرات</h3></div><button onClick={() => onNavigate('products')}>مشاهده همه</button></header><div className="activity-list"><div><img src="/images/tile-arena.jpg" alt="آرنا" /><p><b>آرنا سند</b><span>مشخصات سایز ۱۲۰×۲۴۰ ویرایش شد</span><small>۱۲ دقیقه پیش</small></p></div><div><img src="/images/tile-calacatta.jpg" alt="کلکته" /><p><b>کلکته اورو</b><span>محصول در کاتالوگ منتشر شد</span><small>۲ ساعت پیش</small></p></div><div><img src="/images/tile-noir.jpg" alt="نوآر" /><p><b>نوآر استون</b><span>۳ تصویر فیس جدید افزوده شد</span><small>دیروز</small></p></div></div></article>
+      <article className="admin-activity-card"><header><div><small>فعالیت کاتالوگ</small><h3>آخرین تغییرات</h3></div><button onClick={() => onNavigate('products')}>مشاهده همه</button></header><div className="activity-list"><div><img src="/images/tile-arena.jpg" alt="آرنا" loading="lazy" decoding="async" width="60" height="60" /><p><b>آرنا سند</b><span>مشخصات سایز ۱۲۰×۲۴۰ ویرایش شد</span><small>۱۲ دقیقه پیش</small></p></div><div><img src="/images/tile-calacatta.jpg" alt="کلکته" loading="lazy" decoding="async" width="60" height="60" /><p><b>کلکته اورو</b><span>محصول در کاتالوگ منتشر شد</span><small>۲ ساعت پیش</small></p></div><div><img src="/images/tile-noir.jpg" alt="نوآر" loading="lazy" decoding="async" width="60" height="60" /><p><b>نوآر استون</b><span>۳ تصویر فیس جدید افزوده شد</span><small>دیروز</small></p></div></div></article>
     </section>
     <section className="admin-table-card recent"><header><div><small>پیگیری فروش</small><h3>آخرین استعلام‌ها</h3></div><button onClick={() => onNavigate('inquiries')}>همه استعلام‌ها <ArrowLeft size={15} /></button></header><InquiryTable inquiries={inquiries.slice(0, 4)} compact onStatusChange={() => undefined} /></section>
   </>
@@ -194,11 +197,16 @@ function InquiryTable({ inquiries, compact = false, onStatusChange }: { inquirie
 }
 
 export default function AdminApp() {
+  useSEO({
+    title: 'پنل مدیریت',
+    description: 'پنل مدیریت محتوای ALMASCERAM — مدیریت کاتالوگ، استعلام‌ها و SEO.',
+    noindex: true,
+    canonicalPath: '/admin',
+  })
   const [auth, setAuth] = useState<AuthState>(isSupabaseConfigured ? 'loading' : 'guest')
   const [profile, setProfile] = useState<AdminProfile | null>(null)
   const [view, setView] = useState<AdminRouteId>(() => adminRouteFromPath(window.location.pathname))
   const [mobileNav, setMobileNav] = useState(false)
-  const [notifications, setNotifications] = useState(false)
   const [products, setProducts] = useState<AdminProduct[]>(demoProducts)
   const [series, setSeries] = useState<SeriesOption[]>(demoSeries)
   const [inquiries, setInquiries] = useState<AdminInquiry[]>(demoInquiries)
@@ -208,11 +216,11 @@ export default function AdminApp() {
   const [dataError, setDataError] = useState('')
   const [dashboardCounts, setDashboardCounts] = useState<DashboardCounts>({ collections: 3, series: 6, products: demoProducts.length, sizes: demoProducts.reduce((sum, item) => sum + item.sizesCount, 0), inquiries: { submitted: 3, inReview: 4, quoted: 12 } })
 
-  const navigate = (next: AdminRouteId) => {
+  const navigate = useCallback((next: AdminRouteId) => {
     setView(next)
     window.history.pushState({}, '', ADMIN_ROUTES[next].path)
     setMobileNav(false)
-  }
+  }, [])
 
   useEffect(() => {
     const onPopState = () => setView(adminRouteFromPath(window.location.pathname))
@@ -226,7 +234,7 @@ export default function AdminApp() {
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     if (!isSupabaseConfigured) return
     setDataError('')
     try {
@@ -237,7 +245,7 @@ export default function AdminApp() {
       const dbInquiries = (inquiryData as unknown as Array<{ id: string; inquiry_number: number; status: InquiryAdminStatus; project_city: string | null; company_name: string | null; submitted_at: string; customer_name: string | null; inquiry_items: Array<{ count: number }> }>).map((item) => ({ id: item.id, number: faNumber(item.inquiry_number), customer: item.customer_name ?? 'مشتری', company: item.company_name ?? '—', city: item.project_city ?? '—', itemsCount: item.inquiry_items[0]?.count ?? 0, status: item.status, submittedAt: new Date(item.submitted_at).toLocaleString('fa-IR') }))
       setSeries(dbSeries); setProducts(dbProducts); setInquiries(dbInquiries); setDashboardCounts(counts)
     } catch (caught) { setDataError(caught instanceof Error ? caught.message : 'دریافت داده‌های پنل ناموفق بود') }
-  }
+  }, [])
 
   useEffect(() => {
     const client = supabase
@@ -276,7 +284,7 @@ export default function AdminApp() {
   }, [])
 
   const filteredProducts = useMemo(() => products.filter((item) => `${item.name} ${item.sku} ${item.seriesName}`.toLowerCase().includes(query.trim().toLowerCase())), [products, query])
-  const saveProduct = async (values: AdminProductFormValues) => {
+  const saveProduct = useCallback(async (values: AdminProductFormValues) => {
     const payload = { seriesId: values.seriesId, name: values.name, slug: values.slug, sku: values.sku, description: values.description || null, isPublished: values.isPublished }
     if (isSupabaseConfigured) {
       if (editor && editor !== 'new') await updateProduct(editor.id, payload)
@@ -288,30 +296,33 @@ export default function AdminApp() {
       else setProducts((rows) => [{ id: `demo-${Date.now()}`, name: values.name, slug: values.slug, sku: values.sku, seriesId: values.seriesId, seriesName, description: values.description ?? '', image: '/images/tile-arena.jpg', sizesCount: 0, isActive: true, isPublished: values.isPublished, updatedAt: 'همین حالا' }, ...rows])
     }
     setToast(editor === 'new' ? 'محصول جدید ایجاد شد' : 'تغییرات محصول ذخیره شد')
-  }
-  const removeProduct = async (product: AdminProduct) => {
+  }, [editor, series, refreshData])
+  const removeProduct = useCallback(async (product: AdminProduct) => {
     if (!window.confirm(`محصول «${product.name}» غیرفعال شود؟`)) return
     try { if (isSupabaseConfigured) { await deleteProduct(product.id); await refreshData() } else setProducts((rows) => rows.map((item) => item.id === product.id ? { ...item, isActive: false } : item)); setToast('حذف نرم انجام شد') } catch (caught) { setDataError(caught instanceof Error ? caught.message : 'حذف انجام نشد') }
-  }
-  const reactivateProduct = async (product: AdminProduct) => { try { if (isSupabaseConfigured) { await restoreProduct(product.id); await refreshData() } else setProducts((rows) => rows.map((item) => item.id === product.id ? { ...item, isActive: true } : item)); setToast('محصول بازیابی شد') } catch (caught) { setDataError(caught instanceof Error ? caught.message : 'بازیابی انجام نشد') } }
-  const logout = async () => { if (supabase) await supabase.auth.signOut(); setAuth('guest'); setProfile(null) }
+  }, [refreshData])
+  const reactivateProduct = useCallback(async (product: AdminProduct) => {
+    try { if (isSupabaseConfigured) { await restoreProduct(product.id); await refreshData() } else setProducts((rows) => rows.map((item) => item.id === product.id ? { ...item, isActive: true } : item)); setToast('محصول بازیابی شد') } catch (caught) { setDataError(caught instanceof Error ? caught.message : 'بازیابی انجام نشد') }
+  }, [refreshData])
+  const logout = useCallback(async () => { if (supabase) await supabase.auth.signOut(); setAuth('guest'); setProfile(null) }, [])
+
+  const navGroups: NavGroup[] = useMemo(() => [
+    { label: 'اصلی', items: [{ id: 'dashboard', label: 'نمای کلی', icon: SquaresFour }, { id: 'inquiries', label: 'استعلام‌ها', icon: ClipboardText, badge: inquiries.filter((item) => item.status === 'submitted').length }] },
+    { label: 'طبقه‌بندی', items: [{ id: 'taxonomy-surface', label: 'سطوح', icon: Stack }, { id: 'taxonomy-finishes', label: 'پرداخت‌ها', icon: Stack }, { id: 'taxonomy-spaces', label: 'فضاها', icon: Stack }] },
+    { label: 'کاتالوگ', items: [{ id: 'collections', label: 'کالکشن‌ها', icon: Stack }, { id: 'series', label: 'سری‌ها', icon: SquaresFour }, { id: 'products', label: 'محصولات', icon: Cube }, { id: 'sizes', label: 'سایزها و فایل‌ها', icon: Package }] },
+    { label: 'SEO', items: [{ id: 'seo-collection', label: 'SEO کالکشن', icon: Gear }, { id: 'seo-series', label: 'SEO سری', icon: Gear }, { id: 'seo-product', label: 'SEO محصول', icon: Gear }] },
+    { label: 'سیستم', items: [{ id: 'settings', label: 'تنظیمات و امنیت', icon: ShieldCheck }] },
+  ], [inquiries])
 
   if (auth === 'loading') return <div className="admin-loading" dir="rtl"><span className="admin-spinner" /><p>در حال اعتبارسنجی نشست امن...</p></div>
   if (auth === 'guest') return <AdminLogin onAuthenticated={(nextProfile) => { window.history.replaceState({}, '', '/admin'); setProfile(nextProfile); setAuth('admin'); if (isSupabaseConfigured) void refreshData() }} />
 
-  const navGroups = [
-    { label: 'اصلی', items: [{ id: 'dashboard' as const, label: 'نمای کلی', icon: SquaresFour }, { id: 'inquiries' as const, label: 'استعلام‌ها', icon: ClipboardText, badge: inquiries.filter((item) => item.status === 'submitted').length }] },
-    { label: 'طبقه‌بندی', items: [{ id: 'taxonomy-surface' as const, label: 'سطوح', icon: Stack }, { id: 'taxonomy-finishes' as const, label: 'پرداخت‌ها', icon: Stack }, { id: 'taxonomy-spaces' as const, label: 'فضاها', icon: Stack }] },
-    { label: 'کاتالوگ', items: [{ id: 'collections' as const, label: 'کالکشن‌ها', icon: Stack }, { id: 'series' as const, label: 'سری‌ها', icon: SquaresFour }, { id: 'products' as const, label: 'محصولات', icon: Cube }, { id: 'sizes' as const, label: 'سایزها و فایل‌ها', icon: Package }] },
-    { label: 'SEO', items: [{ id: 'seo-collection' as const, label: 'SEO کالکشن', icon: Gear }, { id: 'seo-series' as const, label: 'SEO سری', icon: Gear }, { id: 'seo-product' as const, label: 'SEO محصول', icon: Gear }] },
-    { label: 'سیستم', items: [{ id: 'settings' as const, label: 'تنظیمات و امنیت', icon: ShieldCheck }] },
-  ]
   const title = ADMIN_ROUTES[view]
 
   return <div className="admin-shell" dir="rtl">
-    {mobileNav && <button className="admin-nav-overlay" onClick={() => setMobileNav(false)} aria-label="بستن منو" />}
-    <aside className={`admin-sidebar ${mobileNav ? 'open' : ''}`}><div className="sidebar-head"><AdminBrand /><button className="sidebar-close" onClick={() => setMobileNav(false)}><X size={20} /></button></div><nav className="admin-grouped-nav">{navGroups.map((group) => <div className="nav-group" key={group.label}><small>{group.label}</small>{group.items.map((item) => { const Icon = item.icon; const badge = 'badge' in item ? item.badge : 0; return <button key={item.id} className={view === item.id ? 'active' : ''} onClick={() => navigate(item.id)}><Icon size={19} weight="light" /><span>{item.label}</span>{badge ? <b>{faNumber(badge)}</b> : null}</button> })}</div>)}</nav><div className="sidebar-foot"><button onClick={() => { window.location.href = '/' }}><ArrowSquareOut size={18} /><span>مشاهده وب‌سایت</span></button><button onClick={logout}><SignOut size={18} /><span>خروج از حساب</span></button><div className="admin-profile"><span>{profile?.fullName.slice(0, 1)}</span><p><b>{profile?.fullName}</b><small>{profile?.role === 'super_admin' ? 'مدیر ارشد' : profile?.role}</small></p><i /></div></div></aside>
-    <main className="admin-main"><header className="admin-topbar"><button className="admin-menu-trigger" onClick={() => setMobileNav(true)}><List size={22} /></button><div><small>{title.eyebrow}</small><h1>{title.title}</h1></div><div className="topbar-actions"><span className="environment"><i /> {isSupabaseConfigured ? 'Production' : 'Demo mode'}</span><button className="notification-button" onClick={() => setNotifications((value) => !value)}><Bell size={20} /><i /></button>{notifications && <div className="notification-popover"><b>اعلان‌ها</b><p><ClipboardText size={17} /> ۳ استعلام جدید منتظر بررسی است.</p><p><Clock size={17} /> اطلاعات فنی ۲ محصول ناقص است.</p></div>}</div></header>
+    <AdminSidebar activeView={view} groups={navGroups} profile={profile} mobileOpen={mobileNav} onNavigate={navigate} onCloseMobile={() => setMobileNav(false)} onSignOut={() => void logout()} />
+    <main className="admin-main">
+      <AdminTopbar titleEyebrow={title.eyebrow} title={title.title} onOpenSidebar={() => setMobileNav(true)} />
       <div className="admin-content">{dataError && <div className="admin-data-error"><span>{dataError}</span><button onClick={() => setDataError('')}><X size={16} /></button></div>}
         {view === 'dashboard' && <DashboardView products={products} inquiries={inquiries} counts={dashboardCounts} onNavigate={navigate} />}
         {view === 'taxonomy-surface' && <TaxonomyPage kind="surface" isSuperAdmin={profile?.role === 'super_admin'} />}
@@ -323,7 +334,7 @@ export default function AdminApp() {
         {view === 'seo-collection' && <SeoPage entity="collection" />}
         {view === 'seo-series' && <SeoPage entity="series" />}
         {view === 'seo-product' && <SeoPage entity="product" />}
-        {view === 'products' && <section className="admin-table-card products-card"><header><div><small>همه محصولات</small><h3>{faNumber(filteredProducts.length)} محصول ثبت‌شده</h3></div><div className="table-tools"><label><MagnifyingGlass size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="نام، سری یا کد محصول..." /></label><button onClick={() => setEditor('new')}><Plus size={17} /> محصول جدید</button></div></header><div className="admin-table-wrap"><table className="admin-data-table products-table"><thead><tr><th>محصول</th><th>کد</th><th>سری</th><th>سایزها</th><th>وضعیت</th><th>آخرین تغییر</th><th /></tr></thead><tbody>{filteredProducts.map((item) => <tr key={item.id}><td><div className="admin-product-cell"><img src={item.image} alt={item.name} /><p><b>{item.name}</b><small dir="ltr">/{item.slug}</small></p></div></td><td><code>{item.sku}</code></td><td>{item.seriesName}</td><td>{faNumber(item.sizesCount)} سایز</td><td><span className={`publish-status ${item.isActive && item.isPublished ? 'published' : 'draft'}`}><i />{!item.isActive ? 'غیرفعال' : item.isPublished ? 'منتشرشده' : 'پیش‌نویس'}</span></td><td>{item.updatedAt}</td><td><div className="row-actions"><button onClick={() => setEditor(item)} aria-label={`ویرایش ${item.name}`}><PencilSimple size={17} /></button>{item.isActive ? <button onClick={() => void removeProduct(item)} aria-label={`حذف نرم ${item.name}`}><Trash size={17} /></button> : <button onClick={() => void reactivateProduct(item)} aria-label={`بازیابی ${item.name}`}>↻</button>}</div></td></tr>)}</tbody></table></div></section>}
+        {view === 'products' && <section className="admin-table-card products-card"><header><div><small>همه محصولات</small><h3>{faNumber(filteredProducts.length)} محصول ثبت‌شده</h3></div><div className="table-tools"><label><MagnifyingGlass size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="نام، سری یا کد محصول..." /></label><button onClick={() => setEditor('new')}><Plus size={17} /> محصول جدید</button></div></header><div className="admin-table-wrap"><table className="admin-data-table products-table"><thead><tr><th>محصول</th><th>کد</th><th>سری</th><th>سایزها</th><th>وضعیت</th><th>آخرین تغییر</th><th /></tr></thead><tbody>{filteredProducts.map((item) => <tr key={item.id}>                <td><div className="admin-product-cell"><img src={item.image} alt={item.name} loading="lazy" decoding="async" width="40" height="40" /><p><b>{item.name}</b><small dir="ltr">/{item.slug}</small></p></div></td><td><code>{item.sku}</code></td><td>{item.seriesName}</td><td>{faNumber(item.sizesCount)} سایز</td><td><span className={`publish-status ${item.isActive && item.isPublished ? 'published' : 'draft'}`}><i />{!item.isActive ? 'غیرفعال' : item.isPublished ? 'منتشرشده' : 'پیش‌نویس'}</span></td><td>{item.updatedAt}</td><td><div className="row-actions"><button onClick={() => setEditor(item)} aria-label={`ویرایش ${item.name}`}><PencilSimple size={17} /></button>{item.isActive ? <button onClick={() => void removeProduct(item)} aria-label={`حذف نرم ${item.name}`}><Trash size={17} /></button> : <button onClick={() => void reactivateProduct(item)} aria-label={`بازیابی ${item.name}`}>↻</button>}</div></td></tr>)}</tbody></table></div></section>}
         {view === 'inquiries' && <InquiriesPage />}
         {view === 'settings' && <section className="settings-grid"><article><header><i><ShieldCheck size={25} /></i><div><small>کنترل دسترسی</small><h3>Security by Design</h3></div></header><ul><li><CheckCircle size={17} /> RLS روی تمام جداول فعال است</li><li><CheckCircle size={17} /> Service Role در مرورگر وجود ندارد</li><li><CheckCircle size={17} /> نقش فعال: {profile?.role}</li><li><CheckCircle size={17} /> Audit Log فقط خواندنی برای ادمین</li></ul></article><article><header><i><Stack size={25} /></i><div><small>وضعیت زیرساخت</small><h3>Supabase Connection</h3></div></header><div className="system-status"><span><i className={isSupabaseConfigured ? 'online' : 'demo'} /> پایگاه داده</span><b>{isSupabaseConfigured ? 'متصل' : 'حالت نمایشی'}</b><span><i className={isSupabaseConfigured ? 'online' : 'demo'} /> احراز هویت</span><b>{isSupabaseConfigured ? 'فعال' : 'شبیه‌سازی رابط'}</b><span><i className="online" /> Build تولید</span><b>سالم</b></div></article></section>}
       </div>

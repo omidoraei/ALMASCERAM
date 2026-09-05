@@ -38,6 +38,6 @@ export const useInquiryStore = create<InquiryState>()(
       })),
       clear: () => set({ items: [] }),
     }),
-    { name: 'kara-persistent-inquiry', version: 1 },
+    { name: 'almasceram-inquiry', version: 1 },
   ),
 )

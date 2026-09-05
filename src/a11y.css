@@ -1,0 +1,73 @@
+/* ============================================================
+   Theme Toggle button + global touch-target / a11y helpers.
+   ============================================================ */
+
+.theme-toggle {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  background: transparent;
+  color: var(--color-text);
+  border-radius: 50%;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Touch-target audit: every interactive element should respect
+   the WCAG / Apple HIG minimum of 44×44 CSS pixels.
+   We bump the smallest controls here rather than touch each
+   component CSS so the rule survives redesigns.
+   ============================================================ */
+
+@media (pointer: coarse) {
+  .row-actions button,
+  .table-view-button,
+  .upload-widget-trigger,
+  .ui-dialog-close,
+  .status-select,
+  .module-pagination button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* ============================================================
+   Focus-visible reset: keep keyboard focus clear, but suppress
+   the default ring for mouse users.
+   ============================================================ */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ============================================================
+   Smooth color transitions when switching theme.
+   Disabled when reduced-motion is preferred.
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  .app-shell,
+  .admin-shell,
+  .account-page,
+  .magic-callback {
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+}
