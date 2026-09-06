@@ -22,7 +22,7 @@ export function organizationSchema() {
     sameAs: [
       'https://www.instagram.com/almasceram',
       'https://www.linkedin.com/company/almasceram',
-    ],
+    ], // TODO(pre-launch): replace with verified official social URLs from brand owner
     contactPoint: [
       {
         '@type': 'ContactPoint',

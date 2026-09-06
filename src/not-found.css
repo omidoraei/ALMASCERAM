@@ -1,0 +1,127 @@
+.not-found {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  background: var(--bg, #f4f2ed);
+  color: var(--fg, #1a1d22);
+  font-family: 'Vazirmatn', 'IRANSans', Tahoma, Arial, sans-serif;
+}
+
+.not-found-main {
+  max-width: 640px;
+  text-align: center;
+}
+
+.not-found-eyebrow {
+  font-size: 14px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8a6a2f;
+  margin: 0 0 16px;
+  font-weight: 600;
+}
+
+.not-found-title {
+  font-size: clamp(28px, 4vw, 44px);
+  line-height: 1.3;
+  margin: 0 0 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.not-found-body {
+  font-size: 17px;
+  line-height: 1.9;
+  color: var(--fg-muted, #4a4a4a);
+  margin: 0 0 32px;
+}
+
+.not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin: 0 0 32px;
+}
+
+.not-found-primary,
+.not-found-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 24px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.not-found-primary {
+  background: #1a1d22;
+  color: #f4f2ed;
+}
+
+.not-found-primary:hover {
+  transform: translateY(-1px);
+  background: #2a2e35;
+}
+
+.not-found-secondary {
+  background: transparent;
+  color: #1a1d22;
+  border: 1px solid #d2cec6;
+}
+
+.not-found-secondary:hover {
+  background: #ece6de;
+}
+
+.not-found-help {
+  font-size: 14px;
+  color: var(--fg-muted, #6a6a6a);
+  margin: 0;
+}
+
+.not-found-help a {
+  color: #8a6a2f;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+[data-theme='dark'] .not-found {
+  --bg: #0f1115;
+  --fg: #f4f2ed;
+  --fg-muted: #a8a8a8;
+}
+
+[data-theme='dark'] .not-found-primary {
+  background: #c89b4a;
+  color: #0f1115;
+}
+
+[data-theme='dark'] .not-found-primary:hover {
+  background: #e4b96a;
+}
+
+[data-theme='dark'] .not-found-secondary {
+  color: #f4f2ed;
+  border-color: #2a2e35;
+}
+
+[data-theme='dark'] .not-found-secondary:hover {
+  background: #1a1d22;
+}
+
+@media (max-width: 480px) {
+  .not-found-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .not-found-primary,
+  .not-found-secondary {
+    justify-content: center;
+  }
+}

@@ -26,7 +26,7 @@ export const SITE_LOCALE = 'fa_IR'
 export const SITE_COUNTRY = 'IR'
 export const SITE_AUTHOR = 'ALMASCERAM'
 export const SITE_URL = import.meta.env['VITE_SITE_URL'] || 'https://almasceram.ir'
-export const OG_IMAGE = `${SITE_URL}/images/hero-architecture.jpg`
+export const OG_IMAGE = `${SITE_URL}/og-image.svg`
 export const TWITTER_HANDLE = '@almasceram'
 
 export const CONTACT = {
