@@ -86,7 +86,7 @@ function Hero() {
           </div>
         </div>
         <div className="hero-media">
-          <img src="/images/hero-architecture.jpg" alt="فضای معماری مدرن پوشیده‌شده با پرسلان روشن" fetchPriority="high" decoding="async" width="1200" height="800" />
+          <img src="/images/hero/hero-architecture.svg" alt="فضای معماری مدرن پوشیده‌شده با پرسلان روشن" fetchPriority="high" decoding="async" width="1200" height="800" />
           <div className="hero-label"><span>کالکشن زمین</span><b>تراورتن لایت</b><small>۱۲۰ × ۲۴۰ سانتی‌متر</small></div>
           <div className="hero-index">۰۱ <i /> ۰۴</div>
         </div>
@@ -179,7 +179,7 @@ function Collections() {
   return (
     <section className="collections-section" id="collections">
       <div className="collection-copy"><span className="section-kicker">کالکشن‌های منتخب</span><h2>از ایده تا سطح،<br />یک روایت منسجم.</h2><p>هر کالکشن کارا بر پایه یک زبان متریال شکل گرفته تا انتخاب سطوح مختلف پروژه، دقیق و هماهنگ باقی بماند.</p><button onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}>کاوش در کالکشن زمین <ArrowLeft size={18} /></button></div>
-      <div className="collection-visual"><img src="/images/hero-architecture.jpg" alt="کالکشن پرسلان معماری زمین" loading="lazy" decoding="async" width="800" height="500" /><div><small>۰۱ / ۰۳</small><strong>زمین</strong><span>ZAMIN COLLECTION</span></div></div>
+      <div className="collection-visual"><img src="/images/hero/hero-architecture.svg" alt="کالکشن پرسلان معماری زمین" loading="lazy" decoding="async" width="800" height="500" /><div><small>۰۱ / ۰۳</small><strong>زمین</strong><span>ZAMIN COLLECTION</span></div></div>
     </section>
   )
 }
@@ -305,7 +305,7 @@ export default function PublicApp() {
     description: 'کاتالوگ تخصصی محصولات پرسلانی الماس سرام؛ مقایسه مشخصات فنی سایزها و ثبت استعلام قیمت پروژه‌ای. مناسب معماران، طراحان و پیمانکاران.',
     keywords: SITE_KEYWORDS,
     canonicalPath: '/',
-    image: '/images/hero-architecture.jpg',
+    image: '/images/hero/hero-architecture.svg',
     jsonLd: [
       organizationSchema(),
       websiteSchema(),

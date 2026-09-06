@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="سرامیک کانکری - رنگ بتنی">
+  <defs>
+    <radialGradient id="concrete-bg" cx="0.5" cy="0.3" r="1">
+      <stop offset="0" stop-color="#b8b6b0"/>
+      <stop offset="1" stop-color="#6a6864"/>
+    </radialGradient>
+    <pattern id="concrete-tile" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+      <rect width="100" height="100" fill="url(#concrete-bg)"/>
+      <circle cx="15" cy="25" r="1" fill="#3a3835" opacity="0.5"/>
+      <circle cx="70" cy="15" r="1.2" fill="#3a3835" opacity="0.4"/>
+      <circle cx="40" cy="60" r="1.5" fill="#3a3835" opacity="0.5"/>
+      <circle cx="85" cy="75" r="0.8" fill="#3a3835" opacity="0.6"/>
+      <circle cx="25" cy="85" r="1" fill="#3a3835" opacity="0.4"/>
+      <path d="M0 0 L100 0 L100 100 L0 100 Z" fill="none" stroke="#4a4844" stroke-width="0.3"/>
+    </pattern>
+  </defs>
+  <rect width="800" height="600" fill="url(#concrete-tile)"/>
+  <rect x="20" y="20" width="200" height="50" fill="#1a1d22" opacity="0.85" rx="4"/>
+  <text x="120" y="42" font-family="'Vazirmatn', Tahoma, Arial, sans-serif" font-size="18" fill="#f4f2ed" text-anchor="middle" direction="rtl">کانکری</text>
+  <text x="120" y="60" font-family="Georgia, serif" font-size="9" fill="#c89b4a" text-anchor="middle" letter-spacing="0.25em">CONCRETE</text>
+  <text x="400" y="580" font-family="Georgia, serif" font-size="10" fill="#1a1d22" text-anchor="middle" letter-spacing="0.3em">100×100 · 80×80 · 60×60</text>
+</svg>

@@ -22,7 +22,7 @@ const mockProduct: Product = {
   category: 'سنگ',
   finish: 'مات',
   applications: ['کف', 'دیوار'],
-  image: '/images/tile-arena.jpg',
+  image: '/images/products/tile-arena.svg',
   tone: '#c8bba5',
   sizes: [mockSize],
   technical: {
@@ -52,7 +52,7 @@ describe('inquiry store', () => {
       productId: 'arena-sand',
       productName: 'آرنا سند',
       series: 'آرنا',
-      image: '/images/tile-arena.jpg',
+      image: '/images/products/tile-arena.svg',
       quantity: 1,
     })
     expect(items[0].size).toEqual(mockSize)

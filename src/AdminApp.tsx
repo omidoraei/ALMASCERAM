@@ -107,6 +107,7 @@ function AdminLogin({ onAuthenticated }: { onAuthenticated: (profile: AdminProfi
     setLoading(true)
     try {
       if (!isSupabaseConfigured || !supabase) {
+        console.warn('[admin-login] Supabase not configured; using demo mode')
         if (!email) throw new Error('ایمیل را وارد کنید')
         onAuthenticated({ fullName: 'مدیر نسخه نمایشی', role: 'super_admin' })
         return
@@ -114,7 +115,9 @@ function AdminLogin({ onAuthenticated }: { onAuthenticated: (profile: AdminProfi
       await requestMagicLink({ email, next: '/admin', shouldCreateUser: false })
       setSent(true); setCooldown(60)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'ورود انجام نشد')
+      const message = caught instanceof Error ? caught.message : 'ورود انجام نشد'
+      console.error('[admin-login] failed', message)
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -122,7 +125,7 @@ function AdminLogin({ onAuthenticated }: { onAuthenticated: (profile: AdminProfi
 
   return <main className="admin-login-page" dir="rtl">
     <section className="admin-login-visual">
-      <img src="/images/hero-architecture.jpg" alt="معماری الماس" loading="lazy" decoding="async" width="800" height="600" />
+      <img src="/images/hero/hero-architecture.svg" alt="معماری الماس" loading="lazy" decoding="async" width="800" height="600" />
       <div className="login-visual-copy"><span>سامانه مدیریت کاتالوگ</span><h1>جزئیات دقیق،<br />مدیریت یکپارچه.</h1><p>محصولات، مشخصات فنی سایزها و استعلام‌های پروژه را در یک محیط امن مدیریت کنید.</p></div>
       <small>SECURE ADMIN CONSOLE · ALMASCERAM</small>
     </section>
@@ -186,7 +189,7 @@ function DashboardView({ products, inquiries, counts, onNavigate }: { products: 
     <section className="admin-stats">{stats.map(({ label, value, change, icon: Icon }, index) => <article key={label}><div><span>{label}</span><strong>{faNumber(value)}</strong><small className={index === 2 ? '' : 'positive'}>{index !== 2 && <TrendUp size={13} />} {change}</small></div><i><Icon size={24} weight="light" /></i></article>)}</section>
     <section className="admin-dashboard-grid">
       <article className="admin-chart-card"><header><div><small>روند استعلام‌ها</small><h3>عملکرد ۱۲ هفته اخیر</h3></div><span>۱۲ هفته اخیر</span></header><div className="chart-summary"><strong>۱۴۸</strong><span>مجموع استعلام‌ها</span><b><TrendUp size={14} /> ۱۸٫۴٪</b></div><div className="bar-chart">{bars.map((height, index) => <div key={index}><i style={{ height: `${height}%` }} className={index === bars.length - 1 ? 'current' : ''} /><small>{index % 2 === 0 ? faNumber(index + 1) : ''}</small></div>)}</div></article>
-      <article className="admin-activity-card"><header><div><small>فعالیت کاتالوگ</small><h3>آخرین تغییرات</h3></div><button onClick={() => onNavigate('products')}>مشاهده همه</button></header><div className="activity-list"><div><img src="/images/tile-arena.jpg" alt="آرنا" loading="lazy" decoding="async" width="60" height="60" /><p><b>آرنا سند</b><span>مشخصات سایز ۱۲۰×۲۴۰ ویرایش شد</span><small>۱۲ دقیقه پیش</small></p></div><div><img src="/images/tile-calacatta.jpg" alt="کلکته" loading="lazy" decoding="async" width="60" height="60" /><p><b>کلکته اورو</b><span>محصول در کاتالوگ منتشر شد</span><small>۲ ساعت پیش</small></p></div><div><img src="/images/tile-noir.jpg" alt="نوآر" loading="lazy" decoding="async" width="60" height="60" /><p><b>نوآر استون</b><span>۳ تصویر فیس جدید افزوده شد</span><small>دیروز</small></p></div></div></article>
+      <article className="admin-activity-card"><header><div><small>فعالیت کاتالوگ</small><h3>آخرین تغییرات</h3></div><button onClick={() => onNavigate('products')}>مشاهده همه</button></header><div className="activity-list"><div><img src="/images/products/tile-arena.svg" alt="آرنا" loading="lazy" decoding="async" width="60" height="60" /><p><b>آرنا سند</b><span>مشخصات سایز ۱۲۰×۲۴۰ ویرایش شد</span><small>۱۲ دقیقه پیش</small></p></div><div><img src="/images/products/tile-calacatta.svg" alt="کلکته" loading="lazy" decoding="async" width="60" height="60" /><p><b>کلکته اورو</b><span>محصول در کاتالوگ منتشر شد</span><small>۲ ساعت پیش</small></p></div><div><img src="/images/products/tile-noir.svg" alt="نوآر" loading="lazy" decoding="async" width="60" height="60" /><p><b>نوآر استون</b><span>۳ تصویر فیس جدید افزوده شد</span><small>دیروز</small></p></div></div></article>
     </section>
     <section className="admin-table-card recent"><header><div><small>پیگیری فروش</small><h3>آخرین استعلام‌ها</h3></div><button onClick={() => onNavigate('inquiries')}>همه استعلام‌ها <ArrowLeft size={15} /></button></header><InquiryTable inquiries={inquiries.slice(0, 4)} compact onStatusChange={() => undefined} /></section>
   </>
@@ -280,7 +283,27 @@ export default function AdminApp() {
       }
     }
     void checkSession()
-    return () => { active = false }
+
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+      if (!active) return
+      console.info('[admin] onAuthStateChange', event, { hasSession: Boolean(session) })
+      if (event === 'SIGNED_OUT' || !session) {
+        setAuth('guest')
+        setProfile(null)
+        if (window.location.pathname !== '/admin/login') {
+          window.history.replaceState({}, '', '/admin/login')
+        }
+        return
+      }
+      if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+        void checkSession()
+      }
+    })
+
+    return () => {
+      active = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const filteredProducts = useMemo(() => products.filter((item) => `${item.name} ${item.sku} ${item.seriesName}`.toLowerCase().includes(query.trim().toLowerCase())), [products, query])
@@ -293,7 +316,7 @@ export default function AdminApp() {
     } else {
       const seriesName = series.find((item) => item.id === values.seriesId)?.name ?? 'بدون سری'
       if (editor && editor !== 'new') setProducts((rows) => rows.map((item) => item.id === editor.id ? { ...item, ...values, seriesName, updatedAt: 'همین حالا' } : item))
-      else setProducts((rows) => [{ id: `demo-${Date.now()}`, name: values.name, slug: values.slug, sku: values.sku, seriesId: values.seriesId, seriesName, description: values.description ?? '', image: '/images/tile-arena.jpg', sizesCount: 0, isActive: true, isPublished: values.isPublished, updatedAt: 'همین حالا' }, ...rows])
+      else setProducts((rows) => [{ id: `demo-${Date.now()}`, name: values.name, slug: values.slug, sku: values.sku, seriesId: values.seriesId, seriesName, description: values.description ?? '', image: '/images/products/tile-arena.svg', sizesCount: 0, isActive: true, isPublished: values.isPublished, updatedAt: 'همین حالا' }, ...rows])
     }
     setToast(editor === 'new' ? 'محصول جدید ایجاد شد' : 'تغییرات محصول ذخیره شد')
   }, [editor, series, refreshData])
