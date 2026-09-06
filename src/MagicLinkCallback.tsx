@@ -37,7 +37,23 @@ export default function MagicLinkCallback() {
           return
         }
         const search = new URLSearchParams(window.location.search)
-        const code = search.get('code')
+        let code = search.get('code')
+        // Defensive: if a Supabase implicit-flow link arrived with a hash
+        // fragment (#access_token=... or #error=...), convert the relevant
+        // params into the query string so the standard PKCE exchange path
+        // can run. PKCE never emits a hash, but keeping both shapes working
+        // prevents broken logins if flowType is ever changed in Supabase.
+        if (!code && window.location.hash) {
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+          const hashCode = hashParams.get('code')
+          if (hashCode) {
+            const next = new URL(window.location.href)
+            next.hash = ''
+            next.searchParams.set('code', hashCode)
+            window.history.replaceState({}, '', next.toString())
+            code = hashCode
+          }
+        }
         // Validate the `next` parameter to prevent open-redirect attacks.
         const rawNext = search.get('next')
         const next = isSameOriginPath(rawNext ?? '') ? rawNext : null
