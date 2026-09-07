@@ -43,21 +43,33 @@ export async function exchangeMagicLinkSession(code?: string | null) {
       const { error } = await auth.exchangeCodeForSession(code)
       if (error) {
         console.error('[auth] exchangeCodeForSession failed', { code: (error as { code?: string }).code, message: error.message })
-        throw new Error(`Magic Link نامعتبر یا منقضی شده است: ${error.message}`)
+        throw new Error(`خطا در تبادل توکن: ${error.message}`)
       }
     }
   }
   const { data: { session }, error } = await auth.getSession()
   if (error || !session) {
     console.error('[auth] getSession failed', { error: error?.message })
-    throw new Error('نشست احرازشده ایجاد نشد؛ دوباره وارد شوید.')
+    throw new Error('نشست منقضی شده، لطفاً دوباره وارد شوید.')
   }
   return session
 }
 
-export async function getActiveAdminProfile(userId: string) {
+export type AdminProfileResult =
+  | { kind: 'admin'; profile: { full_name: string; role: string; is_active: boolean } }
+  | { kind: 'not_admin' }
+  | { kind: 'query_failed'; message: string }
+
+export async function getActiveAdminProfile(userId: string): Promise<AdminProfileResult> {
   const id = z.uuid().parse(userId)
   const { data, error } = await client().from('admin_profiles').select('full_name,role,is_active').eq('user_id', id).eq('is_active', true).maybeSingle()
-  if (error) throw new Error('بررسی دسترسی مدیریت انجام نشد')
-  return data
+  if (error) {
+    console.error('[auth] admin_profiles query failed', { code: (error as { code?: string }).code, message: error.message, details: (error as { details?: string }).details })
+    return { kind: 'query_failed', message: error.message }
+  }
+  if (!data) {
+    console.warn('[auth] admin_profiles: no row for user', { userId: id })
+    return { kind: 'not_admin' }
+  }
+  return { kind: 'admin', profile: data }
 }

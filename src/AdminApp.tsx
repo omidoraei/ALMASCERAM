@@ -90,7 +90,14 @@ function AdminBrand() {
 
 function AdminLogin({ onAuthenticated }: { onAuthenticated: (profile: AdminProfile) => void }) {
   const [email, setEmail] = useState('')
-  const [error, setError] = useState(() => new URLSearchParams(window.location.search).has('unauthorized') ? 'این حساب دسترسی مدیریت فعال ندارد' : '')
+  const [error, setError] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.has('error') && params.get('error') === 'admin_check_failed') {
+      return 'خطا در بررسی دسترسی ادمین. جدول admin_profiles ممکن است وجود نداشته باشد یا RLS دسترسی را بلاک کرده. جزئیات در Console مرورگر.'
+    }
+    if (params.has('unauthorized')) return 'این حساب دسترسی مدیریت فعال ندارد'
+    return ''
+  })
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [cooldown, setCooldown] = useState(0)
@@ -271,9 +278,14 @@ export default function AdminApp() {
         }
         return
       }
-      const { data: admin } = await client.from('admin_profiles').select('full_name,role,is_active').eq('user_id', session.user.id).eq('is_active', true).maybeSingle()
+      const { data: admin, error: adminError } = await client.from('admin_profiles').select('full_name,role,is_active').eq('user_id', session.user.id).eq('is_active', true).maybeSingle()
+      if (adminError) {
+        console.error('[admin] admin_profiles query failed', { code: (adminError as { code?: string }).code, message: adminError.message, details: (adminError as { details?: string }).details })
+        if (active) { window.history.replaceState({}, '', '/admin/login?error=admin_check_failed'); setAuth('guest') }
+        return
+      }
       if (!admin) {
-        await client.auth.signOut()
+        console.warn('[admin] authenticated user has no admin_profiles row', { userId: session.user.id, email: session.user.email })
         if (active) { window.history.replaceState({}, '', '/admin/login?unauthorized=1'); setAuth('guest') }
         return
       }

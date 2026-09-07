@@ -66,10 +66,16 @@ export default function MagicLinkCallback() {
           setState({ status: 'success', trackingCode: result.inquiryId.split('-')[0].toUpperCase() })
           return
         }
-        const admin = await getActiveAdminProfile(session.user.id)
+        const adminResult = await getActiveAdminProfile(session.user.id)
         if (signal.aborted) return
+        if (adminResult.kind === 'query_failed') {
+          console.error('[callback] admin_profiles query failed', adminResult.message)
+          setState({ status: 'error', message: `حساب شما به عنوان ادمین ثبت نشده است یا خطا در بررسی دسترسی: ${adminResult.message}` })
+          return
+        }
+        const admin = adminResult.kind === 'admin' ? adminResult.profile : null
         if (next?.startsWith('/admin') && !admin) {
-          await supabase?.auth.signOut()
+          console.warn('[callback] user is authenticated but not an admin; redirecting with notice', { userId: session.user.id })
           window.location.replace('/admin?unauthorized=1')
           return
         }
@@ -82,6 +88,7 @@ export default function MagicLinkCallback() {
         window.location.replace(destination)
       } catch (error) {
         if (!signal.aborted) {
+          console.error('[callback] complete failed', error)
           setState({ status: 'error', message: error instanceof Error ? error.message : 'تکمیل ورود انجام نشد' })
         }
       }
